@@ -143,6 +143,15 @@
             <input type="password" id="newPin" placeholder="4 Digits" maxlength="4">
             <button onclick="changePin()" style="background:#f1c40f; color: black; font-weight: bold; width: 100%; border-radius: 8px; padding: 15px; border: none; cursor: pointer;">SET NEW PIN</button>
             <button onclick="save()" style="background:#2ecc71; color:black; font-weight: bold; width: 100%; border-radius: 8px; padding: 15px; border: none; cursor: pointer; margin-top: 10px;">SAVE SETTINGS</button>
+            
+            <hr style="border:0; border-top:1px solid #333; margin:15px 0; padding-top: 10px;">
+            <label style="color:#9b59b6; font-weight:bold;">🎙️ VOICE COMMANDS (Sinric Pro)</label>
+            <input type="text" id="sKey" placeholder="App Key (Copy from Sinric)">
+            <input type="text" id="sSecret" placeholder="App Secret (Copy from Sinric)">
+            <input type="text" id="sId" placeholder="Device ID (Copy from Sinric)">
+            <button onclick="saveVoice()" style="background:#9b59b6; color:white; font-weight: bold; width: 100%; border-radius: 8px; padding: 15px; border: none; cursor: pointer; margin-top: 10px;">LINK GOOGLE/SIRI</button>
+            
+            <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
             <button onclick="factoryReset()" style="background:#e74c3c; color:white; font-weight: bold; width: 100%; border-radius: 8px; padding: 15px; border: none; cursor: pointer; margin-top: 10px;">FACTORY RESET</button>
             <button onclick="document.getElementById('modal').style.display='none'" class="exit-link">EXIT</button>
         </div>
@@ -417,6 +426,25 @@
             alert("YOUR SETTINGS SAVED!");
         }
         function factoryReset() { if(confirm("Are you sure? This will wipe all settings and restart the device.")) send('RESET_FACTORY'); }
+        function saveVoice() {
+            let k = document.getElementById('sKey').value.trim();
+            let s = document.getElementById('sSecret').value.trim();
+            let i = document.getElementById('sId').value.trim();
+            
+            if(!k || !s || !i) {
+                showToast("Please fill all 3 Voice keys!", "error");
+                return;
+            }
+
+            // Send the exact format your new Arduino code is waiting for
+            send("SINRIC|" + k + "|" + s + "|" + i); 
+            showToast("Voice Keys Linked! Restarting Door...", "green");
+            
+            // Clear the boxes after sending for security
+            document.getElementById('sKey').value = "";
+            document.getElementById('sSecret').value = "";
+            document.getElementById('sId').value = "";
+        }
         function send(c) {
             if(client && client.isConnected()){
                 let m = new Paho.MQTT.Message(c);
