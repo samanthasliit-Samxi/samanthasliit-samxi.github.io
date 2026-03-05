@@ -455,14 +455,12 @@
                 return;
             }
 
-           // Send the exact format your new Arduino code is waiting for
+            // Tell the user we are sending the keys to the hardware
+            showToast("Sending Keys to Door...", "green");
             send("SINRIC|" + k + "|" + s + "|" + i); 
-            showToast("Keys Saved to Door Memory! Rebooting...", "green");
             
-            // Clear the boxes after sending for security
-            document.getElementById('sKey').value = "";
-            document.getElementById('sSecret').value = "";
-            document.getElementById('sId').value = "";
+            // Note: We DO NOT clear the boxes here anymore. 
+            // We wait for the hardware to reply first!
         }
         function send(c) {
             if(client && client.isConnected()){
