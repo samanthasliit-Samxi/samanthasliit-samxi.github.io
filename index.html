@@ -194,11 +194,18 @@
         async function requestWakeLock() {
             try { if ('wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); } } catch (err) {}
         }
-        function showToast(message, type) {
+        function showToast(message, type, timeMs = 4000) {
             const x = document.getElementById("toast");
             x.innerText = message;
             x.className = "show " + (type === 'error' ? 'toast-red' : 'toast-green');
-            setTimeout(function(){ x.className = ""; }, 3000);
+            
+            // Automatically adjust the CSS fade-out animation to match your custom time
+            x.style.animation = `fadein 0.5s, fadeout 0.5s ${(timeMs / 1000) - 0.5}s`;
+            
+            setTimeout(function(){ 
+                x.className = ""; 
+                x.style.animation = ""; // reset animation for the next message
+            }, timeMs);
         }
         function vibrateAlert(type) {
             if ("vibrate" in navigator) {
@@ -395,9 +402,9 @@
                         document.getElementById('entryPin').value = document.getElementById('newPin').value; 
                         showToast("PIN UPDATED SUCCESSFULLY", "green"); 
                         timerEditing = false;
-                    } else if (p === "VOICE_LINKED") {
-                        // The door replied! NOW we show success and clear the boxes.
-                        showToast("Keys Saved! Door is Rebooting...", "green");
+                    } } else if (p === "VOICE_LINKED") {
+                        // The door replied! Show the new message for 6000ms (6 seconds)
+                        showToast("The keys are saved successfully and Restarted System", "green", 6000);
                         document.getElementById('sKey').value = "";
                         document.getElementById('sSecret').value = "";
                         document.getElementById('sId').value = "";
