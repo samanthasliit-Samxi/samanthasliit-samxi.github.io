@@ -455,9 +455,9 @@
                 return;
             }
 
-            // Send the exact format your new Arduino code is waiting for
+           // Send the exact format your new Arduino code is waiting for
             send("SINRIC|" + k + "|" + s + "|" + i); 
-            showToast("Voice Keys Linked! Restarting Door...", "green");
+            showToast("Keys Saved to Door Memory! Rebooting...", "green");
             
             // Clear the boxes after sending for security
             document.getElementById('sKey').value = "";
