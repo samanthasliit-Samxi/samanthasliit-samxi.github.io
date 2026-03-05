@@ -395,6 +395,12 @@
                         document.getElementById('entryPin').value = document.getElementById('newPin').value; 
                         showToast("PIN UPDATED SUCCESSFULLY", "green"); 
                         timerEditing = false;
+                    } else if (p === "VOICE_LINKED") {
+                        // The door replied! NOW we show success and clear the boxes.
+                        showToast("Keys Saved! Door is Rebooting...", "green");
+                        document.getElementById('sKey').value = "";
+                        document.getElementById('sSecret').value = "";
+                        document.getElementById('sId').value = "";
                     }
                 }
             };
