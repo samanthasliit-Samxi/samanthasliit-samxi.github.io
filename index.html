@@ -80,7 +80,26 @@
         .auto{background:#f1c40f;color:black;display:none;}
         .timer-lock{pointer-events:none; opacity:0.35 !important; filter: contrast(0.8);}
         .hist-btn{background:#444; font-size:1.1rem; height:50px; margin-top:20px; border:1px solid #555;}
-       #modal, #hModal, #voiceModal {display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);z-index:100; overflow-y: auto;}
+       .reconnect-btn {
+            margin-left: 10px;
+            padding: 8px 15px;
+            background: #f1c40f;
+            color: black;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.1s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+            vertical-align: middle;
+        }
+        .reconnect-btn:active {
+            transform: scale(0.90);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.4);
+            background: #d4ac0d;
+        }
+        #modal, #hModal, #voiceModal {display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);z-index:100; overflow-y: auto;}
         .modal-content{background:#1c1c1c; width:85%; max-width:350px; margin:30px auto; padding:25px; border-radius:20px; text-align:left; border:1px solid #333; padding-bottom: 50px;}
         .exit-link {background:none; color:#FFFFFF !important; border:none; margin-top:30px; display:block; width:100%; font-weight:900; font-size:2rem; cursor:pointer; text-shadow:0 0 10px #ffffff, 0 0 20px #ffffff; text-align: center;}
         #logList{list-style:none; padding:0; margin:0; max-height:350px; overflow-y:auto;}
@@ -324,7 +343,8 @@
             client.onConnectionLost = (e) => {
                 if(!isCountingDown) {
                     document.getElementById('led').className = "led red";
-                    document.getElementById('stat').innerHTML = `OFFLINE <button onclick="connect()" style="margin-top:10px; padding:5px 15px; background:#f1c40f; color: black; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">RECONNECT NOW</button>` + document.getElementById('pCont').outerHTML;
+                    // Using the new CSS class, changing text to "CONNECTING...", and triggering a vibration!
+                    document.getElementById('stat').innerHTML = `OFFLINE <button class="reconnect-btn" onclick="this.innerText='CONNECTING...'; vibrateAlert('closed'); connect();">RECONNECT NOW</button>` + document.getElementById('pCont').outerHTML;
                     freezePanel(true, true);
                 }
             };
