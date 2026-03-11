@@ -175,11 +175,21 @@
         }
 
         function syncTelegram() {
-            let id = document.getElementById('tgChatId').value.trim();
-            if(id.length < 5) { showToast("Please enter a valid ID", "error"); return; }
-            showToast("Syncing ID with Door...", "green");
-            send("SETCHAT|" + id);
-        }
+    let idInput = document.getElementById('tgChatId').value.trim();
+    
+    // Clean the ID (remove @ or spaces if the user accidentally added them)
+    let cleanID = idInput.replace(/[^0-9-]/g, ''); 
+    
+    if(cleanID.length < 5) { 
+        showToast("Invalid ID. Use numbers only!", "error"); 
+        return; 
+    }
+
+    showToast("Syncing ID: " + cleanID, "green");
+    
+    // Send to the door
+    send("SETCHAT|" + cleanID);
+}
 
         function connect() {
             dev = document.getElementById('id').value.trim();
