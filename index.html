@@ -217,7 +217,21 @@
                     document.getElementById('modal').style.display = 'block';
                 } else if (p.startsWith("DATA|")) {
                     let d = p.split("|");
-                    updateWiFi(d[1]);
+                    updateWiFi(d[1]); // Signal strength
+                    
+                    // --- NEW LOGIC TO SHOW AUTO BUTTON ---
+                    if (d[2] === "1") {
+                        document.getElementById('abtn').style.display = "block";
+                    } else {
+                        document.getElementById('abtn').style.display = "none";
+                    }
+                    
+                    // Sync the settings fields if you aren't currently typing
+                    if (!timerEditing) {
+                        document.getElementById('at').value = d[3]; // Timer
+                        document.getElementById('ae').value = d[2]; // Enabled/Disabled
+                    }
+
                     document.getElementById('pg1').style.display='none';
                     if(document.getElementById('pg3').style.display !== 'block') document.getElementById('pg2').style.display='block';
                 }
