@@ -350,7 +350,7 @@
                     freezePanel(true, true);
                 }
             };
-            client.onMessageArrived = (m) => {
+        client.onMessageArrived = (m) => {
                 let p = m.payloadString;
                 let s = document.getElementById('stat');
                 lastMsgTime = Date.now();
@@ -359,6 +359,26 @@
                 const now = new Date();
                 document.getElementById('lastUpdate').innerText = "Last sync: " + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                 
+                // --- [START OF NEW UNAUTHORIZED LOGIC] ---
+                if (p.startsWith("UNAUTHORIZED|")) {
+                    let type = p.split("|")[1];
+                    let uMsg = "UNEXPECTED " + type + " DETECTED";
+                    
+                    // Save to local unauthorized storage
+                    let uLogs = JSON.parse(localStorage.getItem("samxi_unauthorized_logs") || "[]");
+                    uLogs.unshift({
+                        date: new Date().toLocaleString(),
+                        msg: uMsg
+                    });
+                    if(uLogs.length > 100) uLogs.pop(); // Keep only last 100 events
+                    localStorage.setItem("samxi_unauthorized_logs", JSON.stringify(uLogs));
+                    
+                    showToast("⚠️ SECURITY: " + uMsg, "error", 6000);
+                    vibrateAlert('opening');
+                    if (typeof playAlertBeeps === "function") playAlertBeeps();
+                }
+                // --- [END OF NEW UNAUTHORIZED LOGIC] ---
+
                 if (p === "OPENING" || p === "OPEN") {
                     if (lastSensorStatus !== "OPEN") { showToast("ALERT: Door is Opening!", "error"); vibrateAlert('opening'); addLog("Detected : GateOpened"); startGateReminder(); }
                     lastSensorStatus = "OPEN";
@@ -446,29 +466,23 @@
 
         function freezePanel(status, forceAll = false) { const btns = document.querySelectorAll('#pg3 .btn'); btns.forEach(btn => { if (forceAll) { status ? btn.classList.add('timer-lock') : btn.classList.remove('timer-lock'); return; } if (btn.id !== 'abtn') status ? btn.classList.add('timer-lock') : btn.classList.remove('timer-lock'); }); }
 
-        async function fetchSecurityLogs() {
-            const appId = "a71c864f-2514-4798-b919-4511e0801b5a"; const display = document.getElementById("securityLogDisplay"); let restKey = localStorage.getItem("samxi_rest_key"); let localAuthLogs = JSON.parse(localStorage.getItem("persistent_auth_logs") || "[]"); const clearTime = parseInt(localStorage.getItem("samxi_log_clear_time") || "0");
-            if (!restKey) { restKey = prompt("Please enter your OneSignal REST API Key:"); if (restKey) localStorage.setItem("samxi_rest_key", restKey); else return; }
-            display.innerHTML = "<p style='color:#888;'>Updating Records...</p>";
-            try {
-                const response = await fetch(`https://onesignal.com/api/v1/notifications?app_id=${appId}&limit=50`, { headers: { 'Authorization': `Basic ${restKey}`, 'Content-Type': 'application/json' } });
-                const data = await response.json();
-                if (data.notifications) {
-                    let lastTimestamp = 0;
-                    data.notifications.reverse().forEach(notif => {
-                        let msg = notif.contents.en; let currentTS = notif.queued_at;
-                        if (!msg.includes("via APP") && !msg.includes("still open") && (msg.includes("ALERT") || msg.includes("SUCCESS"))) {
-                            const isDuplicateWake = (currentTS - lastTimestamp) < 10; const exists = localAuthLogs.some(log => log.id === notif.id);
-                            if (!exists && !isDuplicateWake && currentTS > clearTime) { localAuthLogs.push({ id: notif.id, msg: msg, date: new Date(currentTS * 1000).toLocaleString(), timestamp: currentTS }); lastTimestamp = currentTS; }
-                        }
-                    });
-                    localAuthLogs.sort((a, b) => b.timestamp - a.timestamp);
-                    if(localAuthLogs.length > 600) localAuthLogs = localAuthLogs.slice(0, 600);
-                    localStorage.setItem("persistent_auth_logs", JSON.stringify(localAuthLogs));
-                }
-                let html = ""; localAuthLogs.forEach(log => { let themeColor = log.msg.includes("OPENED") ? "#ff4d4d" : "#2ecc71"; html += `<div style="padding:10px; border-bottom:1px solid #333; border-left: 5px solid ${themeColor}; background:#222; margin-bottom:5px; border-radius:8px;"><small style="color:${themeColor}; font-weight:bold;">${log.msg.includes("OPENED") ? "⚠️ UN-AUTHORIZED" : "✅ SYSTEM"}</small><br><span style="color:#888; font-size:11px;">${log.date}</span><br><strong style="color:#eee;">${log.msg}</strong></div>`; });
-                display.innerHTML = html || "<p style='color:#2ecc71;'>No unauthorized events recorded.</p>";
-            } catch (err) { display.innerHTML = "<p style='color:#ff4d4d;'>Error updating. Showing offline logs.</p>"; }
+    function fetchSecurityLogs() {
+            const display = document.getElementById("securityLogDisplay");
+            // Read from the local storage we created in the message handler
+            let uLogs = JSON.parse(localStorage.getItem("samxi_unauthorized_logs") || "[]");
+            
+            let html = "";
+            if (uLogs.length === 0) {
+                html = "<p style='color:#2ecc71; text-align:center;'>No unauthorized events recorded.</p>";
+            } else {
+                uLogs.forEach(log => {
+                    html += `<div style="padding:10px; border-bottom:1px solid #333; border-left: 5px solid #ff4d4d; background:#222; margin-bottom:5px; border-radius:8px;">
+                        <small style="color:#ff4d4d; font-weight:bold;">⚠️ UN-AUTHORIZED</small><br>
+                        <span style="color:#888; font-size:11px;">${log.date}</span><br>
+                        <strong style="color:#eee;">${log.msg}</strong></div>`;
+                });
+            }
+            display.innerHTML = html;
         }
 
         function downloadHistoryCSV() {
