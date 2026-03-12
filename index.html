@@ -139,8 +139,8 @@
             <label>Timer (sec):</label>
             <input type="number" id="at" onfocus="timerEditing=true" oninput="timerEditing=true">
             <button onclick="save()" style="background:#2ecc71; color:black; font-weight: bold; width: 100%; border-radius: 8px; padding: 15px; border: none; cursor: pointer; margin-top: 10px;">SAVE SETTINGS</button>
-            
             <hr style="border:0; border-top:1px solid #333; margin:20px 0;">
+            
             <button onclick="openTgModal()" style="background:#3498db; color:white; font-weight: bold; width: 100%; border-radius: 8px; padding: 15px; border: none; cursor: pointer;">📱 SYNC TELEGRAM ALERTS</button>
             
             <hr style="border:0; border-top:1px solid #333; margin:20px 0;">
@@ -270,7 +270,7 @@
         function clearHistory() {
             if(!confirm("This will permanently delete ALL logs. Proceed?")) return;
             localStorage.setItem("samxi_logs", "[]");
-            localStorage.setItem("persistent_auth_logs", "[]");
+            localStorage.setItem("samxi_unauthorized_logs", "[]"); // NEW
             const nowSeconds = Math.floor(Date.now() / 1000);
             localStorage.setItem("samxi_log_clear_time", nowSeconds);
             openHistory();
@@ -346,11 +346,11 @@
             client.onConnectionLost = (e) => {
                 if(!isCountingDown) {
                     document.getElementById('led').className = "led red";
-                    document.getElementById('stat').innerHTML = `OFFLINE <button class="reconnect-btn" onclick="this.innerText='CONNECTING...'; vibrateAlert('closed'); connect();">RECONNECT NOW</button>` + document.getElementById('pCont').outerHTML;
+                    document.getElementById('stat').innerHTML = `OFFLINE <button class="reconnect-btn" onclick="connect()">RECONNECT</button>` + document.getElementById('pCont').outerHTML;
                     freezePanel(true, true);
                 }
             };
-        client.onMessageArrived = (m) => {
+            client.onMessageArrived = (m) => {
                 let p = m.payloadString;
                 let s = document.getElementById('stat');
                 lastMsgTime = Date.now();
@@ -358,26 +358,19 @@
                 if(!isCountingDown) freezePanel(false, true);
                 const now = new Date();
                 document.getElementById('lastUpdate').innerText = "Last sync: " + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                
-                // --- [START OF NEW UNAUTHORIZED LOGIC] ---
+
+                // --- NEW UNAUTHORIZED LOGIC ---
                 if (p.startsWith("UNAUTHORIZED|")) {
                     let type = p.split("|")[1];
                     let uMsg = "UNEXPECTED " + type + " DETECTED";
-                    
-                    // Save to local unauthorized storage
                     let uLogs = JSON.parse(localStorage.getItem("samxi_unauthorized_logs") || "[]");
-                    uLogs.unshift({
-                        date: new Date().toLocaleString(),
-                        msg: uMsg
-                    });
-                    if(uLogs.length > 100) uLogs.pop(); // Keep only last 100 events
+                    uLogs.unshift({ date: new Date().toLocaleString(), msg: uMsg });
+                    if(uLogs.length > 100) uLogs.pop();
                     localStorage.setItem("samxi_unauthorized_logs", JSON.stringify(uLogs));
-                    
                     showToast("⚠️ SECURITY: " + uMsg, "error", 6000);
                     vibrateAlert('opening');
                     if (typeof playAlertBeeps === "function") playAlertBeeps();
                 }
-                // --- [END OF NEW UNAUTHORIZED LOGIC] ---
 
                 if (p === "OPENING" || p === "OPEN") {
                     if (lastSensorStatus !== "OPEN") { showToast("ALERT: Door is Opening!", "error"); vibrateAlert('opening'); addLog("Detected : GateOpened"); startGateReminder(); }
@@ -418,7 +411,7 @@
                         }
                     } else if (p === "START_AUTO") { startAuto(); }
                     else if (p === "PIN_CHANGED") { localStorage.setItem("samxi_pin", document.getElementById('newPin').value); document.getElementById('entryPin').value = document.getElementById('newPin').value; showToast("PIN UPDATED SUCCESSFULLY", "green"); timerEditing = false; }
-                    else if (p === "VOICE_LINKED") { showToast("The keys are saved successfully and Restarted System", "green", 6000); document.getElementById('sKey').value = ""; document.getElementById('sSecret').value = ""; document.getElementById('sId').value = ""; }
+                    else if (p === "VOICE_LINKED") { showToast("The keys are saved successfully!", "green", 6000); document.getElementById('sKey').value = ""; document.getElementById('sSecret').value = ""; document.getElementById('sId').value = ""; }
                 }
             };
             client.connect({ useSSL: true, keepAliveInterval: 10, timeout: 5, onSuccess: () => { client.subscribe("samxi/" + dev + "/state", { qos: 1 }); requestWakeLock(); send("GET_STATE"); const ns = document.getElementById('netStat'); ns.innerText = "System Ready"; ns.className = "net-status online-bg"; setTimeout(() => { ns.style.display = 'none'; }, 2000); }, onFailure: (e) => { setTimeout(connect, 5000); } });
@@ -466,11 +459,9 @@
 
         function freezePanel(status, forceAll = false) { const btns = document.querySelectorAll('#pg3 .btn'); btns.forEach(btn => { if (forceAll) { status ? btn.classList.add('timer-lock') : btn.classList.remove('timer-lock'); return; } if (btn.id !== 'abtn') status ? btn.classList.add('timer-lock') : btn.classList.remove('timer-lock'); }); }
 
-    function fetchSecurityLogs() {
+        function fetchSecurityLogs() {
             const display = document.getElementById("securityLogDisplay");
-            // Read from the local storage we created in the message handler
             let uLogs = JSON.parse(localStorage.getItem("samxi_unauthorized_logs") || "[]");
-            
             let html = "";
             if (uLogs.length === 0) {
                 html = "<p style='color:#2ecc71; text-align:center;'>No unauthorized events recorded.</p>";
@@ -486,11 +477,11 @@
         }
 
         function downloadHistoryCSV() {
-            let allLogs = [...JSON.parse(localStorage.getItem("samxi_logs") || "[]"), ...JSON.parse(localStorage.getItem("persistent_auth_logs") || "[]")];
+            let allLogs = [...JSON.parse(localStorage.getItem("samxi_logs") || "[]"), ...JSON.parse(localStorage.getItem("samxi_unauthorized_logs") || "[]")];
             if (allLogs.length === 0) { showToast("No history to download!", "error"); return; }
-            allLogs.sort((a, b) => new Date(b.date || b.timestamp * 1000) - new Date(a.date || a.timestamp * 1000));
+            allLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
             let csvContent = "Date and Time,Message\n";
-            allLogs.forEach(log => { csvContent += `${log.date || new Date(log.timestamp * 1000).toLocaleString()},${(log.msg.includes("ALERT") || log.msg.includes("UN-AUTHORIZED")) ? "!!! ALERT !!! " : "LOG: "}${log.msg.replace(/,/g, " ")}\n`; });
+            allLogs.forEach(log => { csvContent += `${log.date},${(log.msg.includes("UNEXPECTED")) ? "!!! ALERT !!! " : "LOG: "}${log.msg.replace(/,/g, " ")}\n`; });
             const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }))); link.setAttribute("download", `${localStorage.getItem("samxi_id") || "SAMXI_DOOR"}_Activity_Log.csv`); link.click(); showToast("File Downloaded!", "green");
         }
 
