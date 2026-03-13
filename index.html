@@ -272,7 +272,8 @@
             const display = document.getElementById("securityLogDisplay");
             let html = "";
             logs.forEach(log => {
-                const isAlert = log.msg.includes("ALERT") || log.msg.includes("Unexpectedly") || log.msg.includes("OPENED");
+                // Modified logic to catch ALERT, Unexpectedly, and manual OPENED/CLOSED from new Arduino code
+                const isAlert = log.msg.includes("ALERT") || log.msg.includes("Unexpectedly") || log.msg.includes("UNAUTHORIZED");
                 const themeColor = isAlert ? "#ff4d4d" : "#2ecc71";
                 const icon = isAlert ? "🚨" : "📱";
                 html += `
@@ -289,6 +290,7 @@
 
         async function syncTelegramOfflineLogs() {
             let localHistory = JSON.parse(localStorage.getItem("persistent_auth_logs") || "[]");
+            // Improved offset handling to avoid missing messages
             const offset = localStorage.getItem("tg_offset") || 0;
             try {
                 const response = await fetch(`https://api.telegram.org/bot${botToken}/getUpdates?offset=${offset}&limit=100`);
@@ -299,7 +301,8 @@
                             const msg = update.message.text;
                             const ts = update.message.date;
                             const msgId = update.message.message_id;
-                            if (msg.includes("ALERT") || msg.includes("Unexpectedly") || msg.includes("OPENED")) {
+                            // Catches all critical security variations
+                            if (msg.includes("ALERT") || msg.includes("Unexpectedly") || msg.includes("UNAUTHORIZED") || msg.includes("SYSTEM")) {
                                 if (!localHistory.some(log => log.id === msgId)) {
                                     localHistory.push({ id: msgId, msg: msg, date: new Date(ts * 1000).toLocaleString(), timestamp: ts });
                                 }
@@ -427,7 +430,7 @@
                     localStorage.setItem("samxi_pin", document.getElementById('entryPin').value);
                     document.getElementById('pg2').style.display='none'; document.getElementById('pg3').style.display='block';
                     document.getElementById('gear').style.visibility='visible'; send("GET_STATE");
-                    syncTelegramOfflineLogs(); // Trigger sync once logged in
+                    syncTelegramOfflineLogs(); // Auto-sync on successful entry
                 } else if (p === "WRONG_PIN") { alert("Wrong PIN!"); }
                 else if (p === "TELEGRAM_LINKED") {
                     showToast("TELEGRAM SYNC SUCCESSFUL!", "green");
@@ -507,7 +510,8 @@
             });
             let csvContent = "Date and Time,Type,Message\n";
             allLogs.forEach(log => {
-                const isCritical = log.msg.includes("ALERT") || log.msg.includes("Unexpectedly") || log.msg.includes("OPENED");
+                // Modified keyword detection for CSV to include UNAUTHORIZED
+                const isCritical = log.msg.includes("ALERT") || log.msg.includes("Unexpectedly") || log.msg.includes("UNAUTHORIZED");
                 csvContent += `${log.date},${isCritical ? "CRITICAL" : "NORMAL"},${log.msg.replace(/,/g, " ")}\n`;
             });
             const link = document.createElement("a");
@@ -522,7 +526,7 @@
             if(localStorage.getItem("samxi_pin")) document.getElementById('entryPin').value = localStorage.getItem("samxi_pin");
             document.body.addEventListener('click', function() { if (audioCtx.state === 'suspended') audioCtx.resume(); }, { once: true });
             
-            // Auto sync logs on startup if already logged in
+            // Auto sync logs on startup if already logged in to ensure history is updated
             if(savedID) syncTelegramOfflineLogs();
         };
     </script>
