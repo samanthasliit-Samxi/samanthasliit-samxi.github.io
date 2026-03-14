@@ -335,33 +335,38 @@
                 if(!isCountingDown) freezePanel(false, true);
                 
                 // NEW: SECURITY TOPIC HANDLER
-                if (topic.includes("/security")) {
-                    let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-                    const now = new Date();
-                    const timeStr = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0') + ":" + now.getSeconds().toString().padStart(2, '0');
-                    const dateStr = now.getFullYear() + "-" + (now.getMonth()+1).toString().padStart(2, '0') + "-" + now.getDate().toString().padStart(2, '0');
-                    
-                    let parts = p.split('|');
-                    let newLog = {
-                        id: parts[0],
-                        display: parts[0] + " | " + dateStr + " " + timeStr + " | " + parts[1]
-                    };
+if (topic.includes("/security")) {
+    let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
+    const now = new Date();
+    const timeStr = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+    const dateStr = now.getFullYear() + "-" + (now.getMonth()+1).toString().padStart(2, '0') + "-" + now.getDate().toString().padStart(2, '0');
+    
+    // The payload is now "3|OPEN;2|CLOSE;1|OPEN;"
+    let allEntries = p.split(';'); 
+    
+    allEntries.forEach(entry => {
+        if (entry.trim() === "") return;
+        
+        let parts = entry.split('|');
+        let logId = parts[0];
+        let logMsg = parts[1];
 
-                    // Only add if ID is new to avoid MQTT repeats
-                    if (!securityLogs.some(l => l.id === parts[0])) {
-                        securityLogs.unshift(newLog);
-                        if(securityLogs.length > 100) securityLogs.pop();
-                        localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
-                        
-                        // Alert the user instantly
-                        showToast("🚨 SECURITY: " + parts[1], "error", 6000);
-                        vibrateAlert('opening');
-                        playAlertBeeps();
-                        
-                        if(document.getElementById('hModal').style.display === 'block') renderSecurityUI();
-                    }
-                    return;
-                }
+        // Only add if we don't have this ID yet
+        if (!securityLogs.some(l => l.id === logId)) {
+            securityLogs.unshift({
+                id: logId,
+                display: logId + " | " + dateStr + " " + timeStr + " | " + logMsg
+            });
+        }
+    });
+
+    // Keep only last 100
+    if(securityLogs.length > 100) securityLogs = securityLogs.slice(0, 100);
+    
+    localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
+    if(document.getElementById('hModal').style.display === 'block') renderSecurityUI();
+    return;
+}
 
                 const nowTime = new Date();
                 document.getElementById('lastUpdate').innerText = "Last sync: " + nowTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
