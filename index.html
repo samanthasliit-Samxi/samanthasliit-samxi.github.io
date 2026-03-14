@@ -334,32 +334,31 @@
                 document.getElementById('led').className="led green";
                 if(!isCountingDown) freezePanel(false, true);
                 
-                // HANDLE SECURITY LOGS FROM ARDUINO (1-100 Format)
+                // NEW: SECURITY TOPIC HANDLER
                 if (topic.includes("/security")) {
                     let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
                     const now = new Date();
-                    const timestampStr = now.getFullYear() + "-" + (now.getMonth()+1).toString().padStart(2, '0') + "-" + now.getDate().toString().padStart(2, '0') + " " + now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+                    const timeStr = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0') + ":" + now.getSeconds().toString().padStart(2, '0');
+                    const dateStr = now.getFullYear() + "-" + (now.getMonth()+1).toString().padStart(2, '0') + "-" + now.getDate().toString().padStart(2, '0');
                     
-                    // Format from Arduino: 1|UNAUTHORIZED OPEN
                     let parts = p.split('|');
-                    let formattedEntry = {
+                    let newLog = {
                         id: parts[0],
-                        display: parts[0] + " | " + timestampStr + " | " + parts[1]
+                        display: parts[0] + " | " + dateStr + " " + timeStr + " | " + parts[1]
                     };
 
-                    // Prevent duplicates and update list
+                    // Only add if ID is new to avoid MQTT repeats
                     if (!securityLogs.some(l => l.id === parts[0])) {
-                        securityLogs.unshift(formattedEntry);
+                        securityLogs.unshift(newLog);
                         if(securityLogs.length > 100) securityLogs.pop();
                         localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
-                        if(document.getElementById('hModal').style.display === 'block') renderSecurityUI();
                         
-                        // Critical Alert Actions
-                        if(p.includes("UNAUTHORIZED")) {
-                            showToast("⚠️ UNAUTHORIZED MOVE DETECTED!", "error", 6000);
-                            vibrateAlert('opening');
-                            playAlertBeeps();
-                        }
+                        // Alert the user instantly
+                        showToast("🚨 SECURITY: " + parts[1], "error", 6000);
+                        vibrateAlert('opening');
+                        playAlertBeeps();
+                        
+                        if(document.getElementById('hModal').style.display === 'block') renderSecurityUI();
                     }
                     return;
                 }
@@ -401,6 +400,7 @@
                         }
                     } else if (p === "START_AUTO") { startAuto(); }
                     else if (p === "PIN_CHANGED") { localStorage.setItem("samxi_pin", document.getElementById('newPin').value); document.getElementById('entryPin').value = document.getElementById('newPin').value; showToast("PIN UPDATED SUCCESSFULLY", "green"); timerEditing = false; }
+                    else if (p === "VOICE_LINKED") { showToast("VOICE SETUP SYNCED", "green"); }
                 }
             };
             client.connect({ useSSL: true, keepAliveInterval: 10, timeout: 5, onSuccess: () => { 
@@ -436,10 +436,10 @@
             let regLogs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
             let secLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
             if (regLogs.length === 0 && secLogs.length === 0) { showToast("No history to download!", "error"); return; }
-            let csvContent = "Type,Date and Time,Message\n";
+            let csvContent = "Type,ID / Date,Message\n";
             secLogs.forEach(l => { csvContent += `SECURITY,${l.display.replace(/ \| /g, ",")}\n`; });
             regLogs.forEach(l => { csvContent += `GENERAL,${l.date},${l.msg.replace(/,/g, " ")}\n`; });
-            const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }))); link.setAttribute("download", `${localStorage.getItem("samxi_id") || "SAMXI_DOOR"}_Full_Activity_Log.csv`); link.click(); showToast("File Downloaded!", "green");
+            const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }))); link.setAttribute("download", `${localStorage.getItem("samxi_id") || "SAMXI_DOOR"}_Full_Log.csv`); link.click(); showToast("File Downloaded!", "green");
         }
 
         window.onload = function() {
