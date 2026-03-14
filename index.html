@@ -188,7 +188,7 @@
     </div>
     <div id="toast"></div>
 
-    <script>
+   <script>
         let wakeLock = null;
         let client, dev, currentWait = 10, countdownTimer, lastMsgTime = Date.now();
         let timerEditing = false, isCountingDown = false, isStatusLocked = false;
@@ -263,7 +263,7 @@
                 return `<li class="log-item"><span class="log-date">${l.date}</span><span class="log-msg" style="${clr}">${l.msg}</span></li>`;
             }).join('') : '<li style="text-align:center;color:#666;">No activity found</li>';
             
-            syncTelegramOfflineLogs(false);
+            syncTelegramOfflineLogs(false); // Quick background sync
             document.getElementById('hModal').style.display = 'block';
         }
 
@@ -271,11 +271,11 @@
             const display = document.getElementById("securityLogDisplay");
             let html = "";
             if (!logs || logs.length === 0) {
-                display.innerHTML = "<p style='color:#666; text-align:center;'>No messages found in Bot Queue (Last 24h).</p>";
+                display.innerHTML = "<p style='color:#666; text-align:center;'>No critical events found (Last 24h).</p>";
                 return;
             }
             logs.forEach(log => {
-                const isAlert = log.msg.includes("🚨") || log.msg.includes("ALERT") || log.msg.includes("Unexpectedly") || log.msg.includes("MANUALLY") || log.msg.includes("UNAUTHORIZED");
+                const isAlert = log.msg.includes("🚨") || log.msg.includes("ALERT") || log.msg.includes("Unexpectedly") || log.msg.includes("UNAUTHORIZED") || log.msg.includes("MANUALLY");
                 const themeColor = isAlert ? "#ff4d4d" : "#2ecc71";
                 const icon = isAlert ? "🚨" : "✅";
                 html += `
@@ -290,14 +290,14 @@
             display.innerHTML = html;
         }
 
-        async function syncTelegramOfflineLogs(isManualForce) {
+        async function syncTelegramOfflineLogs(isForce) {
             let localHistory = JSON.parse(localStorage.getItem("persistent_auth_logs") || "[]");
             
-            // If manual sync or empty list, force full queue scan
-            let offset = (isManualForce || localHistory.length === 0) ? 0 : localStorage.getItem("tg_offset") || 0;
+            // KEY FIX: If forced, we reset offset to 0 to download ALL recent bot history
+            let currentOffset = isForce ? 0 : (localStorage.getItem("tg_offset") || 0);
             
             try {
-                const response = await fetch(`https://api.telegram.org/bot${botToken}/getUpdates?offset=${offset}&limit=100`);
+                const response = await fetch(`https://api.telegram.org/bot${botToken}/getUpdates?offset=${currentOffset}&limit=100`);
                 const data = await response.json();
                 
                 if (data.ok && data.result.length > 0) {
@@ -307,8 +307,8 @@
                             const ts = update.message.date;
                             const msgId = update.message.message_id;
 
-                            // WIDE FILTER: Catches anything with status indicators
-                            if (msg.includes("🚨") || msg.includes("✅") || msg.includes("Door") || msg.includes("SUCCESS")) {
+                            // LOGIC: Catch ANY status related message
+                            if (msg.includes("🚨") || msg.includes("✅") || msg.includes("Door") || msg.includes("Gate") || msg.includes("SUCCESS")) {
                                 if (!localHistory.some(log => log.id === msgId)) {
                                     localHistory.push({ 
                                         id: msgId, 
@@ -321,15 +321,21 @@
                         }
                     });
 
-                    const lastUpdateId = data.result[data.result.length - 1].update_id;
-                    localStorage.setItem("tg_offset", lastUpdateId + 1);
+                    // Update offset so we don't repeat work in background
+                    const lastId = data.result[data.result.length - 1].update_id;
+                    localStorage.setItem("tg_offset", lastId + 1);
                     
+                    // Sort newest to top
                     localHistory.sort((a, b) => b.timestamp - a.timestamp);
                     if(localHistory.length > 1000) localHistory = localHistory.slice(0, 1000);
                     localStorage.setItem("persistent_auth_logs", JSON.stringify(localHistory));
+                    if(isForce) showToast("Security Logs Updated!", "green");
+                } else {
+                    if(isForce) showToast("No new alerts in Cloud.", "green");
                 }
                 renderSecurityUI(localHistory);
             } catch (err) { 
+                console.error("Sync Error:", err);
                 renderSecurityUI(localHistory); 
             }
         }
