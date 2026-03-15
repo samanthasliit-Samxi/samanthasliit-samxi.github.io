@@ -334,7 +334,7 @@
                 document.getElementById('led').className="led green";
                 if(!isCountingDown) freezePanel(false, true);
                 
-                // --- MULTI-SLOT SECURITY HANDLER ---
+                // --- MULTI-SLOT SECURITY HANDLER WITH ORDERED SYNC ---
                 if (topic.includes("/security")) {
                     let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
                     const now = new Date();
@@ -343,12 +343,10 @@
                     let parts = p.split('|');
                     if (parts.length < 3) return; 
 
-                    let logId = parts[0];
+                    let logId = parseInt(parts[0]);
                     let espTime = parts[1]; 
                     let logMsg = parts[2];
 
-                    // Check if this specific event is already in the phone's memory
-                    let uniqueKey = logId + "_" + espTime;
                     if (!securityLogs.some(l => l.id === logId && l.time === espTime)) {
                         securityLogs.unshift({
                             id: logId,
@@ -357,11 +355,14 @@
                             display: logId + " | " + dateStr + " " + espTime + " | " + logMsg
                         });
 
+                        // Re-sort to ensure correct numerical order (1, 2, 3...)
+                        securityLogs.sort((a, b) => b.id - a.id);
+
                         if(securityLogs.length > 200) securityLogs = securityLogs.slice(0, 200);
                         localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
                         
                         if(document.getElementById('hModal').style.display === 'block') renderSecurityUI();
-                        showToast(`🛡️ SYNCED MISSED EVENT: #${logId}`, "green");
+                        showToast(`🛡️ SYNCED EVENT #${logId}`, "green");
                     }
                     return;
                 }
@@ -408,7 +409,6 @@
             };
             client.connect({ useSSL: true, keepAliveInterval: 10, timeout: 5, onSuccess: () => { 
                 client.subscribe("samxi/" + dev + "/state", { qos: 1 }); 
-                // --- WILDCARD SUBSCRIPTION FOR SLOTS ---
                 client.subscribe("samxi/" + dev + "/security/#", { qos: 1 }); 
                 requestWakeLock(); 
                 send("GET_STATE"); 
