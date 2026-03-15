@@ -336,39 +336,40 @@
                 
                 // NEW: SECURITY TOPIC HANDLER
 if (topic.includes("/security")) {
+    // 1. Get the current list from phone memory
     let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
     const now = new Date();
     const dateStr = now.getFullYear() + "-" + (now.getMonth()+1).toString().padStart(2, '0') + "-" + now.getDate().toString().padStart(2, '0');
     
-    let allEntries = p.split('#'); 
-    let newEvents = 0;
+    // 2. Read the single event from ESP
+    let parts = p.split('|');
+    if (parts.length < 3) return; // Ignore if message is broken
 
-    allEntries.forEach(entry => {
-        if (entry.trim() === "" || !entry.includes('|')) return;
+    let logId = parts[0];
+    let espTime = parts[1]; 
+    let logMsg = parts[2];
+
+    // 3. CHECK: If we already have this exact ID and Time, ignore it
+    let uniqueKey = logId + "_" + espTime;
+    if (!securityLogs.some(l => l.id === logId && l.time === espTime)) {
+        securityLogs.unshift({
+            id: logId,
+            time: espTime,
+            msg: logMsg,
+            display: logId + " | " + dateStr + " " + espTime + " | " + logMsg
+        });
+
+        // 4. LIMIT: Keep up to 200 events in phone memory
+        if(securityLogs.length > 200) securityLogs = securityLogs.slice(0, 200);
         
-        let parts = entry.split('|');
-        let logId = parts[0];
-        let espTime = parts[1]; 
-        let logMsg = parts[2];
-
-        // NEW: Composite key check (ID + Time + Msg) to prevent ignoring new events after ESP reboot
-        let uniqueKey = logId + "_" + espTime + "_" + logMsg;
-        if (!securityLogs.some(l => (l.id + "_" + l.time + "_" + l.msg) === uniqueKey)) {
-            securityLogs.unshift({
-                id: logId,
-                time: espTime, // Save time separately for the check
-                msg: logMsg,   // Save msg separately for the check
-                display: logId + " | " + dateStr + " " + espTime + " | " + logMsg
-            });
-            newEvents++;
-        }
-    });
-
-    if (newEvents > 0) {
-        if(securityLogs.length > 200) securityLogs = securityLogs.slice(0, 200); // Increased local storage limit
+        // 5. SAVE: Store back to phone memory
         localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
+        
+        // 6. UI: Refresh the list if the history modal is open
         if(document.getElementById('hModal').style.display === 'block') renderSecurityUI();
-        showToast(`🛡️ Synced ${newEvents} New security events!`, "green");
+        
+        // 7. ALERT: Show a toast only for new events
+        showToast(`🛡️ SECURITY: ${logMsg}`, "error");
     }
     return;
 }
