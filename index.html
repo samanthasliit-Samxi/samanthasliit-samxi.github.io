@@ -338,7 +338,6 @@
 if (topic.includes("/security")) {
     let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
     const now = new Date();
-    // Use current date but we will take the TIME from the ESP payload
     const dateStr = now.getFullYear() + "-" + (now.getMonth()+1).toString().padStart(2, '0') + "-" + now.getDate().toString().padStart(2, '0');
     
     let allEntries = p.split('#'); 
@@ -348,14 +347,17 @@ if (topic.includes("/security")) {
         if (entry.trim() === "" || !entry.includes('|')) return;
         
         let parts = entry.split('|');
-        // New Payload structure: ID (parts[0]) | TIME (parts[1]) | MSG (parts[2])
         let logId = parts[0];
         let espTime = parts[1]; 
         let logMsg = parts[2];
 
-        if (!securityLogs.some(l => l.id === logId)) {
+        // NEW: Composite key check (ID + Time + Msg) to prevent ignoring new events after ESP reboot
+        let uniqueKey = logId + "_" + espTime + "_" + logMsg;
+        if (!securityLogs.some(l => (l.id + "_" + l.time + "_" + l.msg) === uniqueKey)) {
             securityLogs.unshift({
                 id: logId,
+                time: espTime, // Save time separately for the check
+                msg: logMsg,   // Save msg separately for the check
                 display: logId + " | " + dateStr + " " + espTime + " | " + logMsg
             });
             newEvents++;
@@ -363,10 +365,10 @@ if (topic.includes("/security")) {
     });
 
     if (newEvents > 0) {
-        if(securityLogs.length > 100) securityLogs = securityLogs.slice(0, 100);
+        if(securityLogs.length > 200) securityLogs = securityLogs.slice(0, 200); // Increased local storage limit
         localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
         if(document.getElementById('hModal').style.display === 'block') renderSecurityUI();
-        showToast(`🛡️ ${newEvents} New security events synced!`, "green");
+        showToast(`🛡️ Synced ${newEvents} New security events!`, "green");
     }
     return;
 }
