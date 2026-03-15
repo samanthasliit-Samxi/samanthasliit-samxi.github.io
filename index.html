@@ -338,36 +338,41 @@
 if (topic.includes("/security")) {
     let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
     const now = new Date();
-    const timeStr = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+    // Using seconds to distinguish events happening very close together
+    const timeStr = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0') + ":" + now.getSeconds().toString().padStart(2, '0');
     const dateStr = now.getFullYear() + "-" + (now.getMonth()+1).toString().padStart(2, '0') + "-" + now.getDate().toString().padStart(2, '0');
     
-    // The payload is now "3|OPEN;2|CLOSE;1|OPEN;"
-    let allEntries = p.split(';'); 
-    
+    // Split the buffer by the '#' separator
+    let allEntries = p.split('#'); 
+    let newEvents = 0;
+
     allEntries.forEach(entry => {
-        if (entry.trim() === "") return;
+        if (entry.trim() === "" || !entry.includes('|')) return;
         
         let parts = entry.split('|');
         let logId = parts[0];
         let logMsg = parts[1];
 
-        // Only add if we don't have this ID yet
+        // Zero-Duplicate Rule: Check if we have this specific ID already
         if (!securityLogs.some(l => l.id === logId)) {
             securityLogs.unshift({
                 id: logId,
                 display: logId + " | " + dateStr + " " + timeStr + " | " + logMsg
             });
+            newEvents++;
         }
     });
 
-    // Keep only last 100
-    if(securityLogs.length > 100) securityLogs = securityLogs.slice(0, 100);
-    
-    localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
-    if(document.getElementById('hModal').style.display === 'block') renderSecurityUI();
+    if (newEvents > 0) {
+        // Keep exactly the last 100 events
+        if(securityLogs.length > 100) securityLogs = securityLogs.slice(0, 100);
+        localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
+        
+        if(document.getElementById('hModal').style.display === 'block') renderSecurityUI();
+        showToast(`🛡️ ${newEvents} New Security Events Logged`, "green");
+    }
     return;
 }
-
                 const nowTime = new Date();
                 document.getElementById('lastUpdate').innerText = "Last sync: " + nowTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                 
