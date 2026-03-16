@@ -158,147 +158,165 @@
 
     <div id="toast"></div>
 
-    <script>
-        let wakeLock = null, client, dev, currentWait = 10, countdownTimer, lastMsgTime = Date.now();
-        let timerEditing = false, isCountingDown = false, isStatusLocked = false;
-        let lastSensorStatus = "OFFLINE", gateReminderTimer = null, reminderInterval = 5 * 60 * 1000;
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+   <script>
+    let wakeLock = null, client, dev, currentWait = 10, countdownTimer, lastMsgTime = Date.now();
+    let timerEditing = false, isCountingDown = false, isStatusLocked = false;
+    let lastSensorStatus = "OFFLINE", gateReminderTimer = null, reminderInterval = 5 * 60 * 1000;
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-        async function requestWakeLock() { try { if ('wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); } } catch (err) {} }
-        function showToast(message, type, timeMs = 4000) { const x = document.getElementById("toast"); x.innerText = message; x.className = "show " + (type === 'error' ? 'toast-red' : 'toast-green'); setTimeout(function(){ x.className = ""; }, timeMs); }
-        function vibrateAlert(type) { if ("vibrate" in navigator) { type === 'opening' ? navigator.vibrate([500, 100, 500]) : navigator.vibrate(200); } }
-        function playBeep(f, d) { try { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.frequency.value = f; o.start(); g.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + d); o.stop(audioCtx.currentTime + d); } catch(e){} }
-        function playAlertBeeps() { let count = 0, interval = setInterval(() => { playBeep(1800, 0.3); count++; if (count >= 6) clearInterval(interval); }, 1000); }
+    async function requestWakeLock() { try { if ('wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); } } catch (err) {} }
+    function showToast(message, type, timeMs = 4000) { const x = document.getElementById("toast"); x.innerText = message; x.className = "show " + (type === 'error' ? 'toast-red' : 'toast-green'); setTimeout(function(){ x.className = ""; }, timeMs); }
+    function vibrateAlert(type) { if ("vibrate" in navigator) { type === 'opening' ? navigator.vibrate([500, 100, 500]) : navigator.vibrate(200); } }
+    function playBeep(f, d) { try { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.frequency.value = f; o.start(); g.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + d); o.stop(audioCtx.currentTime + d); } catch(e){} }
+    function playAlertBeeps() { let count = 0, interval = setInterval(() => { playBeep(1800, 0.3); count++; if (count >= 6) clearInterval(interval); }, 1000); }
+
+    function addLog(msg) {
+        const now = new Date();
+        const dateStr = now.toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'});
+        const timeStr = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+        let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
+        logs.unshift({ date: dateStr + " " + timeStr, msg: msg });
+        if(logs.length > 1200) logs.pop();
+        localStorage.setItem("samxi_logs", JSON.stringify(logs));
+    }
+
+    function renderSecurityUI() {
+        const display = document.getElementById("securityLogDisplay");
+        let localAuthLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
+        if (localAuthLogs.length === 0) { display.innerHTML = "<p style='color:#666; text-align:center;'>No un-authorized events recorded.</p>"; return; }
+        display.innerHTML = localAuthLogs.map(l => {
+            let textColor = "#ff4d4d"; // Red
+            if(l.msg.includes("POWER")) textColor = "#f1c40f"; // Yellow
+            if(l.msg.includes("WiFi")) textColor = "#3498db"; // Blue
+            return `<div style="padding:8px; border-bottom:1px solid #222; font-family:monospace; color:${textColor}; text-align:left;">${l.display}</div>`;
+        }).join('');
+    }
+
+    function openHistory() {
+        const list = document.getElementById('logList');
+        let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
+        list.innerHTML = logs.length ? logs.map(l => {
+            let clr = l.msg.includes("Detected") ? "color:#FFFF00;" : "color:#2ecc71;";
+            return `<li class="log-item"><span class="log-date">${l.date}</span><span class="log-msg" style="${clr}">${l.msg}</span></li>`;
+        }).join('') : '<li>No activity found</li>';
+        renderSecurityUI();
+        document.getElementById('hModal').style.display = 'block';
+    }
+
+    function connect() {
+        dev = document.getElementById('id').value.trim();
+        if(!dev) { alert("Please enter Product ID"); return; }
+        localStorage.setItem("samxi_id", dev);
         
-        function addLog(msg) {
-            const now = new Date();
-            const dateStr = now.toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'});
-            const timeStr = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-            let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
-            logs.unshift({ date: dateStr + " " + timeStr, msg: msg });
-            if(logs.length > 1200) logs.pop();
-            localStorage.setItem("samxi_logs", JSON.stringify(logs));
-        }
+        client = new Paho.MQTT.Client("broker.hivemq.com", 8884, "cl_" + Math.random().toString(16).slice(2,8));
+        client.onConnectionLost = (e) => {
+            if(!isCountingDown) {
+                document.getElementById('led').className = "led red";
+                document.getElementById('stat').innerHTML = `OFFLINE <button class="reconnect-btn" onclick="connect();">RECONNECT</button>`;
+                freezePanel(true, true);
+            }
+        };
 
-        function renderSecurityUI() {
-            const display = document.getElementById("securityLogDisplay");
-            let localAuthLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-            if (localAuthLogs.length === 0) { display.innerHTML = "<p style='color:#666; text-align:center;'>No un-authorized events recorded.</p>"; return; }
-            
-            display.innerHTML = localAuthLogs.map(l => {
-                let textColor = "#ff4d4d"; // Red
-                if(l.msg.includes("POWER")) textColor = "#f1c40f"; // Yellow
-                if(l.msg.includes("WiFi")) textColor = "#3498db"; // Blue
-                return `<div style="padding:8px; border-bottom:1px solid #222; font-family:monospace; color:${textColor}; text-align:left;">${l.display}</div>`;
-            }).join('');
-        }
+        client.onMessageArrived = (m) => {
+            let p = m.payloadString;
+            let topic = m.destinationName;
+            let s = document.getElementById('stat');
+            document.getElementById('led').className="led green";
 
-        function openHistory() {
-            const list = document.getElementById('logList');
-            let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
-            list.innerHTML = logs.length ? logs.map(l => {
-                let clr = l.msg.includes("Detected") ? "color:#FFFF00;" : "color:#2ecc71;";
-                return `<li class="log-item"><span class="log-date">${l.date}</span><span class="log-msg" style="${clr}">${l.msg}</span></li>`;
-            }).join('') : '<li>No activity</li>';
-            renderSecurityUI();
-            document.getElementById('hModal').style.display = 'block';
-        }
+            // 1. Handle Security Slots
+            if (topic.includes("/security")) {
+                let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
+                const dateStr = new Date().toLocaleDateString();
+                let parts = p.split('|'); if (parts.length < 3) return;
+                let logId = parseInt(parts[0]), espTime = parts[1], logMsg = parts[2];
+                if (!securityLogs.some(l => l.id === logId && l.time === espTime)) {
+                    securityLogs.unshift({ id: logId, time: espTime, msg: logMsg, display: `${logId} | ${dateStr} ${espTime} | ${logMsg}` });
+                    securityLogs.sort((a, b) => b.id - a.id);
+                    localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
+                    if(document.getElementById('hModal').style.display === 'block') renderSecurityUI();
+                    showToast(`🛡️ LOGGED #${logId}`, "green");
+                }
+                return;
+            }
 
-        function connect() {
-            dev = document.getElementById('id').value.trim();
-            if(!dev) return; localStorage.setItem("samxi_id", dev);
-            client = new Paho.MQTT.Client("broker.hivemq.com", 8884, "cl_" + Math.random().toString(16).slice(2,8));
-            client.onConnectionLost = () => { document.getElementById('led').className = "led red"; freezePanel(true, true); };
-            
-            client.onMessageArrived = (m) => {
-                let p = m.payloadString, topic = m.destinationName, s = document.getElementById('stat');
-                document.getElementById('led').className="led green";
-                if(!isCountingDown) freezePanel(false, true);
-
-                // --- SECURITY SLOT HANDLER ---
-                if (topic.includes("/security")) {
-                    let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-                    const dateStr = new Date().toLocaleDateString();
-                    let parts = p.split('|'); if (parts.length < 3) return;
-                    let logId = parseInt(parts[0]), espTime = parts[1], logMsg = parts[2];
-                    if (!securityLogs.some(l => l.id === logId && l.time === espTime)) {
-                        securityLogs.unshift({ id: logId, time: espTime, msg: logMsg, display: `${logId} | ${dateStr} ${espTime} | ${logMsg}` });
-                        securityLogs.sort((a, b) => b.id - a.id);
-                        localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
-                        if(document.getElementById('hModal').style.display === 'block') renderSecurityUI();
-                        showToast(`🛡️ LOGGED #${logId}`, logMsg.includes("POWER") ? "green" : "error");
-                    }
-                    return;
+            // 2. Transition from Login (PG1) to PIN (PG2)
+            if (p === "ONLINE" || p.startsWith("DATA|") || p === "PAUSED") {
+                document.getElementById('pg1').style.display = 'none';
+                if(document.getElementById('pg3').style.display !== 'block') {
+                    document.getElementById('pg2').style.display = 'block';
                 }
                 
-                // --- STATUS & DATA HANDLERS ---
-                lastMsgTime = Date.now();
-                const nowTime = new Date();
-                document.getElementById('lastUpdate').innerText = "Last sync: " + nowTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                
-                if (p === "OPENING" || p === "OPEN") {
-                    if (lastSensorStatus !== "OPEN") { showToast("ALERT: Opening!", "error"); vibrateAlert('opening'); addLog("Detected : GateOpened"); }
-                    lastSensorStatus = "OPEN"; if(!isStatusLocked) { s.innerHTML = "GATE OPENED" + document.getElementById('pCont').outerHTML; s.style.backgroundColor = "#3a1e1e"; }
-                } else if (p === "CLOSED") {
-                    if (lastSensorStatus !== "CLOSED") { showToast("SUCCESS: Closed", "green"); vibrateAlert('closed'); addLog("Detected : GateClosed"); }
-                    lastSensorStatus = "CLOSED"; if(!isStatusLocked) { s.innerHTML = "GATE CLOSED" + document.getElementById('pCont').outerHTML; s.style.backgroundColor = "#1e3a1e"; }
-                } else if (p === "PIN_OK") {
-                    document.getElementById('pg2').style.display='none'; document.getElementById('pg3').style.display='block';
-                    document.getElementById('gear').style.visibility='visible'; send("GET_STATE");
-                } else if (p.startsWith("DATA|")) {
-                    let d = p.split("|"); updateWiFi(d[1]);
-                    if (!timerEditing) { document.getElementById('at').value = d[3]; currentWait = d[3]; document.getElementById('ae').value = d[2]; document.getElementById('abtn').style.display = (d[2]=="1") ? "block" : "none"; }
-                } else if (p === "VOICE_LINKED") showToast("VOICE SYNCED", "green");
-            };
-            
-            client.connect({ useSSL: true, keepAliveInterval: 10, timeout: 5, onSuccess: () => { 
-                client.subscribe("samxi/"+dev+"/state", {qos:1}); 
-                client.subscribe("samxi/"+dev+"/security/#", {qos:1}); 
-                send("GET_STATE"); 
-            }});
-        }
+                if (p.startsWith("DATA|")) {
+                    let d = p.split("|");
+                    updateWiFi(d[1]);
+                    if (!timerEditing) { 
+                        document.getElementById('at').value = d[3]; 
+                        currentWait = d[3]; 
+                        document.getElementById('ae').value = d[2]; 
+                        document.getElementById('abtn').style.display = (d[2]=="1") ? "block" : "none"; 
+                    }
+                    if(!isStatusLocked) {
+                        if(p.includes("OPEN")) { lastSensorStatus = "OPEN"; s.innerHTML = "GATE OPENED"; s.style.backgroundColor = "#3a1e1e"; }
+                        else { lastSensorStatus = "CLOSED"; s.innerHTML = "GATE CLOSED"; s.style.backgroundColor = "#1e3a1e"; }
+                    }
+                }
+            }
 
-        function generatePDFReport() {
-            const devId = localStorage.getItem("samxi_id") || "N/A";
-            const regLogs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
-            const secLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-            const printArea = document.getElementById('printArea');
-            
-            let html = `<div class="print-header"><h1>SAMXI SENTINEL - SECURITY REPORT</h1>`;
-            html += `<p><strong>Device ID:</strong> ${devId} | <strong>Date:</strong> ${new Date().toLocaleString()}</p></div>`;
-            html += `<h3>🛡️ SECURITY EVENTS</h3><table><tr><th>ID</th><th>Timestamp</th><th>Description</th></tr>`;
-            secLogs.forEach(l => { let p = l.display.split(' | '); html += `<tr><td>${p[0]}</td><td>${p[1]}</td><td>${p[2]}</td></tr>`; });
-            html += `</table><h3>📋 ACTIVITY LOG</h3><table><tr><th>Time</th><th>Action</th></tr>`;
-            regLogs.slice(0, 50).forEach(l => { html += `<tr><td>${l.date}</td><td>${l.msg}</td></tr>`; });
-            html += `</table>`;
-            
-            printArea.innerHTML = html;
-            window.print();
-        }
-
-        // --- CORE FUNCTIONS ---
-        function cmd(t, l) { isStatusLocked = true; const s = document.getElementById('stat'); s.innerHTML = "WORKING..." + document.getElementById('pCont').outerHTML; showProgress(8); setTimeout(() => { isStatusLocked = false; s.innerHTML = (lastSensorStatus === "OPEN" ? "GATE OPENED" : "GATE CLOSED") + document.getElementById('pCont').outerHTML; }, 8000); addLog(l); send(t); }
-        function startAuto() { isCountingDown = true; let duration = parseInt(currentWait), endTime = Date.now() + (duration * 1000), abtn = document.getElementById('abtn'); cmd('auto', 'AUTO CLOSE START'); countdownTimer = setInterval(() => { let timeLeft = Math.round((endTime - Date.now()) / 1000); if (timeLeft > 0) { abtn.innerText = "Auto Closing in " + timeLeft + "s"; } else { clearInterval(countdownTimer); abtn.innerText = "AUTO CLOSE"; isCountingDown = false; send('down'); } }, 1000); }
-        function verifyPin() { send("VERIFY|" + document.getElementById('entryPin').value); }
-        function changePin() { send("SETPIN|" + document.getElementById('newPin').value); alert("PIN Changed"); }
-        function save() { send("CONFIG|" + document.getElementById('at').value + "|" + document.getElementById('ae').value); alert("Saved"); }
-        function openTgModal() { document.getElementById('modal').style.display='none'; document.getElementById('tgModal').style.display='block'; }
-        function syncTelegram() { send("SETCHAT|" + document.getElementById('tgChatId').value.trim()); }
-        function factoryReset() { if(confirm("Reset all?")) send('RESET_FACTORY'); }
-        function openVoiceModal() { document.getElementById('modal').style.display='none'; document.getElementById('voiceModal').style.display='block'; }
-        function saveVoice() { send("SINRIC|" + document.getElementById('sKey').value + "|" + document.getElementById('sSecret').value + "|" + document.getElementById('sId').value); }
-        function send(c) { if(client && client.isConnected()){ let m = new Paho.MQTT.Message(c); m.destinationName = "samxi/"+dev+"/cmd"; client.send(m); } }
-        function updateWiFi(r) { document.getElementById('wifiSig').style.display = 'flex'; document.getElementById('rssiVal').innerText = r + "dBm"; }
-        function showProgress(d) { const cont = document.getElementById('pCont'), bar = document.getElementById('pBar'); cont.style.display = 'block'; bar.style.width = '0%'; setTimeout(() => { bar.style.transition = `width ${d}s linear`; bar.style.width = '100%'; }, 50); }
-        function hideProgress() { document.getElementById('pCont').style.display = 'none'; }
-        function freezePanel(s, f = false) { document.querySelectorAll('#pg3 .btn').forEach(btn => { if (f || btn.id !== 'abtn') s ? btn.classList.add('timer-lock') : btn.classList.remove('timer-lock'); }); }
-        function downloadHistoryCSV() { let csv = "Date,Message\n"; JSON.parse(localStorage.getItem("samxi_logs") || "[]").forEach(l => csv += `${l.date},${l.msg}\n`); const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); link.download = "history.csv"; link.click(); }
-        function clearHistory() { if(confirm("Clear logs?")) { localStorage.setItem("samxi_logs", "[]"); localStorage.setItem("local_security_records", "[]"); openHistory(); } }
-
-        window.onload = function() {
-            if(localStorage.getItem("samxi_id")) document.getElementById('id').value = localStorage.getItem("samxi_id");
-            if(localStorage.getItem("samxi_pin")) document.getElementById('entryPin').value = localStorage.getItem("samxi_pin");
+            // 3. Command Responses
+            if (p === "PIN_OK") {
+                document.getElementById('pg2').style.display = 'none';
+                document.getElementById('pg3').style.display = 'block';
+                document.getElementById('gear').style.visibility = 'visible';
+                send("GET_STATE");
+            } else if (p === "WRONG_PIN") { alert("Wrong PIN!"); }
+            else if (p === "PIN_CHANGED") showToast("PIN UPDATED", "green");
+            else if (p === "VOICE_LINKED") showToast("VOICE SYNCED", "green");
+            else if (p === "START_AUTO") startAuto();
         };
-    </script>
+
+        client.connect({ useSSL: true, onSuccess: () => {
+            client.subscribe("samxi/" + dev + "/state", { qos: 1 });
+            client.subscribe("samxi/" + dev + "/security/#", { qos: 1 });
+            send("GET_STATE");
+            document.getElementById('netStat').innerText = "Connected";
+        }, onFailure: () => { setTimeout(connect, 5000); }});
+    }
+
+    function generatePDFReport() {
+        const devId = localStorage.getItem("samxi_id") || "N/A";
+        const regLogs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
+        const secLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
+        const printArea = document.getElementById('printArea');
+        let html = `<div class="print-header"><h1>SAMXI SENTINEL REPORT</h1><p>ID: ${devId}</p></div>`;
+        html += `<h3>SECURITY EVENTS</h3><table><tr><th>ID</th><th>Time</th><th>Desc</th></tr>`;
+        secLogs.forEach(l => { let p = l.display.split(' | '); html += `<tr><td>${p[0]}</td><td>${p[1]}</td><td>${p[2]}</td></tr>`; });
+        html += `</table><h3>ACTIVITY</h3><table><tr><th>Time</th><th>Action</th></tr>`;
+        regLogs.slice(0, 50).forEach(l => { html += `<tr><td>${l.date}</td><td>${l.msg}</td></tr>`; });
+        html += `</table>`;
+        printArea.innerHTML = html; window.print();
+    }
+
+    function cmd(t, l) { isStatusLocked = true; document.getElementById('stat').innerHTML = "WORKING..."; showProgress(8); setTimeout(() => { isStatusLocked = false; }, 8000); addLog(l); send(t); }
+    function startAuto() { isCountingDown = true; cmd('auto', 'AUTO CLOSE START'); let end = Date.now() + (currentWait * 1000); countdownTimer = setInterval(() => { let left = Math.round((end - Date.now()) / 1000); if (left > 0) document.getElementById('abtn').innerText = "Closing in " + left + "s"; else { clearInterval(countdownTimer); isCountingDown = false; send('down'); } }, 1000); }
+    function verifyPin() { if (audioCtx.state === 'suspended') audioCtx.resume(); send("VERIFY|" + document.getElementById('entryPin').value); }
+    function changePin() { send("SETPIN|" + document.getElementById('newPin').value); }
+    function save() { send("CONFIG|" + document.getElementById('at').value + "|" + document.getElementById('ae').value); alert("Saved"); }
+    function openTgModal() { document.getElementById('modal').style.display = 'none'; document.getElementById('tgModal').style.display = 'block'; }
+    function syncTelegram() { send("SETCHAT|" + document.getElementById('tgChatId').value.trim()); }
+    function factoryReset() { if(confirm("Reset device?")) send('RESET_FACTORY'); }
+    function openVoiceModal() { document.getElementById('modal').style.display = 'none'; document.getElementById('voiceModal').style.display = 'block'; }
+    function saveVoice() { send("SINRIC|" + document.getElementById('sKey').value + "|" + document.getElementById('sSecret').value + "|" + document.getElementById('sId').value); }
+    function send(c) { if(client && client.isConnected()){ let m = new Paho.MQTT.Message(c); m.destinationName = "samxi/"+dev+"/cmd"; client.send(m); } }
+    function updateWiFi(r) { document.getElementById('wifiSig').style.display = 'flex'; document.getElementById('rssiVal').innerText = r + "dBm"; }
+    function showProgress(d) { const bar = document.getElementById('pBar'); document.getElementById('pCont').style.display = 'block'; bar.style.width = '0%'; setTimeout(() => { bar.style.transition = `width ${d}s linear`; bar.style.width = '100%'; }, 50); }
+    function freezePanel(s, f = false) { document.querySelectorAll('#pg3 .btn').forEach(btn => { if (f || btn.id !== 'abtn') s ? btn.classList.add('timer-lock') : btn.classList.remove('timer-lock'); }); }
+    function downloadHistoryCSV() { let csv = "Date,Message\n"; JSON.parse(localStorage.getItem("samxi_logs") || "[]").forEach(l => csv += `${l.date},${l.msg}\n`); const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); link.download = "history.csv"; link.click(); }
+    function clearHistory() { if(confirm("Clear logs?")) { localStorage.setItem("samxi_logs", "[]"); localStorage.setItem("local_security_records", "[]"); openHistory(); } }
+
+    window.onload = function() {
+        let savedID = localStorage.getItem("samxi_id"); if(savedID) document.getElementById('id').value = savedID;
+        if(localStorage.getItem("samxi_pin")) document.getElementById('entryPin').value = localStorage.getItem("samxi_pin");
+    };
+</script>
 </body>
 </html>
