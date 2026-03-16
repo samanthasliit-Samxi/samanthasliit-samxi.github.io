@@ -193,25 +193,31 @@
         }).join('');
     }
 
-    // --- 3. MQTT CONNECTIVITY (LOGIN UNLOCKER) ---
+    // --- 3. MQTT CONNECTIVITY (THE LOGIN UNLOCKER) ---
     function connect() {
         dev = document.getElementById('id').value.trim();
-        if(!dev) return; localStorage.setItem("samxi_id", dev);
+        if(!dev) { alert("Enter Product ID"); return; }
+        localStorage.setItem("samxi_id", dev);
+        
         client = new Paho.MQTT.Client("broker.hivemq.com", 8884, "cl_" + Math.random().toString(16).slice(2,8));
         
-        client.onConnectionLost = () => { document.getElementById('led').className = "led red"; freezePanel(true, true); };
+        client.onConnectionLost = (resp) => { 
+            document.getElementById('led').className = "led red"; 
+            document.getElementById('stat').innerHTML = `OFFLINE <button class="reconnect-btn" onclick="connect();">RECONNECT</button>`;
+            freezePanel(true, true); 
+        };
 
         client.onMessageArrived = (m) => {
             let p = m.payloadString, topic = m.destinationName, s = document.getElementById('stat');
             document.getElementById('led').className="led green";
 
-            // CRITICAL: HIDE LOGIN (PG1) & SHOW PIN (PG2) IMMEDIATELY
-            if (p === "ONLINE" || p.startsWith("DATA|") || p === "PAUSED") {
+            // --- THE LOGIN UNLOCKER (Updated for your new Timestamp messages) ---
+            if (p === "ONLINE" || p.startsWith("DATA|") || p.includes("POWER") || p.includes("WiFi") || p === "PAUSED") {
                 document.getElementById('pg1').style.display = 'none';
                 if(document.getElementById('pg3').style.display !== 'block') document.getElementById('pg2').style.display = 'block';
             }
 
-            // SECURITY SLOT SYNC
+            // --- SECURITY SLOT SYNC ---
             if (topic.includes("/security")) {
                 let secLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
                 let parts = p.split('|'); if (parts.length < 3) return;
@@ -226,18 +232,23 @@
                 return;
             }
 
-            // DATA & STATUS HANDLING
+            // --- DATA & STATUS HANDLING ---
             if (p.startsWith("DATA|")) {
                 let d = p.split("|");
                 updateWiFi(d[1]);
-                if (!timerEditing) { document.getElementById('at').value = d[3]; currentWait = d[3]; document.getElementById('ae').value = d[2]; document.getElementById('abtn').style.display = (d[2]=="1") ? "block" : "none"; }
+                if (!timerEditing) { 
+                    document.getElementById('at').value = d[3]; 
+                    currentWait = d[3]; 
+                    document.getElementById('ae').value = d[2]; 
+                    document.getElementById('abtn').style.display = (d[2]=="1") ? "block" : "none"; 
+                }
                 
                 let newStatus = p.includes("OPEN") ? "OPEN" : "CLOSED";
-                if (newStatus !== lastSensorStatus) {
+                if (newStatus !== lastSensorStatus && lastSensorStatus !== "OFFLINE") {
                     if (newStatus === "OPEN") { showToast("ALERT: Door Opened!", "error"); vibrate('open'); addLog("Detected : GateOpened"); }
                     else if (newStatus === "CLOSED") { showToast("SUCCESS: Door Closed", "green"); vibrate('closed'); addLog("Detected : GateClosed"); }
-                    lastSensorStatus = newStatus;
                 }
+                lastSensorStatus = newStatus;
 
                 if(!isStatusLocked) {
                     s.innerHTML = "GATE " + lastSensorStatus + "ED" + document.getElementById('pCont').outerHTML;
@@ -251,8 +262,8 @@
                 document.getElementById('gear').style.visibility='visible';
             }
             if (p === "WRONG_PIN") alert("Invalid PIN");
-            if (p === "PIN_CHANGED") showToast("PIN UPDATED SUCCESSFULLY", "green");
-            if (p === "VOICE_LINKED") showToast("VOICE SETUP SYNCED", "green");
+            if (p === "PIN_CHANGED") showToast("PIN UPDATED", "green");
+            if (p === "VOICE_LINKED") showToast("VOICE SYNCED", "green");
             if (p === "START_AUTO") startAuto();
         };
 
@@ -281,8 +292,14 @@
         }, 1000);
     }
 
-    // --- 5. BUTTON FUNCTIONS (PIN, VOICE, SETTINGS) ---
-    function send(c) { if(client && client.isConnected()) client.send(new Paho.MQTT.Message(c), "samxi/"+dev+"/cmd"); }
+    // --- 5. BUTTON FUNCTIONS ---
+    function send(c) { 
+        if(client && client.isConnected()) {
+            let message = new Paho.MQTT.Message(c);
+            message.destinationName = "samxi/" + dev + "/cmd";
+            client.send(message);
+        }
+    }
     function verifyPin() { if (audioCtx.state === 'suspended') audioCtx.resume(); send("VERIFY|" + document.getElementById('entryPin').value); }
     function changePin() { let np = document.getElementById('newPin').value; if(np.length<4){alert("Min 4 Digits");return;} send("SETPIN|"+np); }
     function saveVoice() { let k = document.getElementById('sKey').value, s = document.getElementById('sSecret').value, i = document.getElementById('sId').value; if(!k||!s||!i){alert("Fill all keys");return;} send("SINRIC|"+k+"|"+s+"|"+i); }
@@ -292,16 +309,19 @@
 
     // --- 6. HISTORY & REPORTING ---
     function openHistory() { renderSecurityUI(); document.getElementById('hModal').style.display = 'block'; }
-    function downloadHistoryCSV() { let csv = "Date,Message\n"; JSON.parse(localStorage.getItem("samxi_logs") || "[]").forEach(l => csv += `${l.date},${l.msg}\n`); const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); link.download = "history.csv"; link.click(); }
+    function downloadHistoryCSV() { 
+        let csv = "Date,Message\n"; 
+        JSON.parse(localStorage.getItem("samxi_logs") || "[]").forEach(l => csv += `${l.date},${l.msg}\n`); 
+        const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); 
+        link.download = "history.csv"; link.click(); 
+    }
     function generatePDFReport() { 
         let printArea = document.getElementById('printArea');
-        if(!printArea) { alert("Missing printArea div in HTML!"); return; }
-        let h = `<h1>SAMXI SENTINEL REPORT</h1><p>ID: ${dev}</p><table>`; 
+        let h = `<div style="color:black; padding:20px;"><h1>SAMXI SENTINEL REPORT</h1><p>ID: ${dev}</p><hr><h3>SECURITY LOGS</h3><table>`; 
         JSON.parse(localStorage.getItem("local_security_records") || "[]").forEach(l => h += `<tr><td>${l.display}</td></tr>`);
-        h += `</table>`; printArea.innerHTML = h; window.print(); 
+        h += `</table></div>`; printArea.innerHTML = h; window.print(); 
     }
     
-    // UI Helpers
     function updateWiFi(r) { document.getElementById('wifiSig').style.display = 'flex'; document.getElementById('rssiVal').innerText = r + "dBm"; }
     function showProgress(d) { const bar = document.getElementById('pBar'); document.getElementById('pCont').style.display = 'block'; bar.style.width = '0%'; setTimeout(() => { bar.style.transition = `width ${d}s linear`; bar.style.width = '100%'; }, 50); }
     function hideProgress() { document.getElementById('pCont').style.display = 'none'; }
