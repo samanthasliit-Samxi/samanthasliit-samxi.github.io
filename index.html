@@ -162,19 +162,19 @@
     </div>
     <div id="toast"></div>
 
-   <script>
+<script>
     let wakeLock = null, client, dev, currentWait = 10, countdownTimer;
     let timerEditing = false, isCountingDown = false, isStatusLocked = false;
     let lastSensorStatus = "OFFLINE", gateReminderTimer = null;
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    // --- 1. UTILITY FUNCTIONS (Sound, Vibrate, Toast) ---
+    // --- 1. UTILITY FUNCTIONS ---
     async function requestWakeLock() { try { if ('wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); } } catch (e) {} }
     function showToast(m, t) { const x = document.getElementById("toast"); x.innerText = m; x.className = "show " + (t === 'error' ? 'toast-red' : 'toast-green'); setTimeout(() => x.className = "", 4000); }
     function vibrate(t) { if ("vibrate" in navigator) navigator.vibrate(t === 'open' ? [500, 100, 500] : 200); }
     function playBeep(f, d) { try { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.frequency.value = f; o.start(); g.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + d); o.stop(audioCtx.currentTime + d); } catch(e){} }
 
-    // --- 2. LOGGING & HISTORY ---
+    // --- 2. LOGGING & SECURITY ---
     function addLog(msg) {
         const now = new Date();
         let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
@@ -185,19 +185,21 @@
     function renderSecurityUI() {
         const display = document.getElementById("securityLogDisplay");
         let logs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-        if (!logs.length) { display.innerHTML = "<p style='color:#666;'>No events.</p>"; return; }
+        if (!logs.length) { display.innerHTML = "<p style='color:#666;'>No events recorded.</p>"; return; }
         display.innerHTML = logs.map(l => {
             let clr = l.msg.includes("POWER") ? "#f1c40f" : (l.msg.includes("WiFi") ? "#3498db" : "#ff4d4d");
             return `<div style="padding:8px; border-bottom:1px solid #222; color:${clr}; text-align:left; font-family:monospace;">${l.display}</div>`;
         }).join('');
     }
 
-    // --- 3. MQTT CORE (THE LOGIN UNLOCKER) ---
+    // --- 3. MQTT CONNECTIVITY (LOGIN UNLOCKER) ---
     function connect() {
         dev = document.getElementById('id').value.trim();
         if(!dev) return; localStorage.setItem("samxi_id", dev);
         client = new Paho.MQTT.Client("broker.hivemq.com", 8884, "cl_" + Math.random().toString(16).slice(2,8));
         
+        client.onConnectionLost = () => { document.getElementById('led').className = "led red"; freezePanel(true, true); };
+
         client.onMessageArrived = (m) => {
             let p = m.payloadString, topic = m.destinationName, s = document.getElementById('stat');
             document.getElementById('led').className="led green";
@@ -218,18 +220,25 @@
                     secLogs.sort((a, b) => b.id - a.id);
                     localStorage.setItem("local_security_records", JSON.stringify(secLogs.slice(0, 50)));
                     if(document.getElementById('hModal').style.display === 'block') renderSecurityUI();
-                    showToast(`🛡️ NEW LOG: ${parts[2]}`, "green");
+                    showToast(`🛡️ SECURITY EVENT #${id}`, "green");
                 }
                 return;
             }
 
-            // DATA HANDLING
+            // DATA & STATUS HANDLING
             if (p.startsWith("DATA|")) {
                 let d = p.split("|");
                 updateWiFi(d[1]);
                 if (!timerEditing) { document.getElementById('at').value = d[3]; currentWait = d[3]; document.getElementById('ae').value = d[2]; document.getElementById('abtn').style.display = (d[2]=="1") ? "block" : "none"; }
+                
+                let newStatus = p.includes("OPEN") ? "OPEN" : "CLOSED";
+                if (newStatus !== lastSensorStatus) {
+                    if (newStatus === "OPEN") { showToast("ALERT: Door Opened!", "error"); vibrate('open'); addLog("Detected : GateOpened"); }
+                    else if (newStatus === "CLOSED") { showToast("SUCCESS: Door Closed", "green"); vibrate('closed'); addLog("Detected : GateClosed"); }
+                    lastSensorStatus = newStatus;
+                }
+
                 if(!isStatusLocked) {
-                    lastSensorStatus = p.includes("OPEN") ? "OPEN" : "CLOSED";
                     s.innerHTML = "GATE " + lastSensorStatus + "ED" + document.getElementById('pCont').outerHTML;
                     s.style.backgroundColor = lastSensorStatus === "OPEN" ? "#3a1e1e" : "#1e3a1e";
                     if(lastSensorStatus === "CLOSED") hideProgress();
@@ -241,23 +250,23 @@
                 document.getElementById('gear').style.visibility='visible';
             }
             if (p === "WRONG_PIN") alert("Invalid PIN");
+            if (p === "PIN_CHANGED") showToast("PIN UPDATED SUCCESSFULLY", "green");
+            if (p === "VOICE_LINKED") showToast("VOICE SETUP SYNCED", "green");
+            if (p === "START_AUTO") startAuto();
         };
 
         client.connect({ useSSL: true, onSuccess: () => { 
             client.subscribe("samxi/"+dev+"/state", {qos:1}); 
             client.subscribe("samxi/"+dev+"/security/#", {qos:1}); 
-            send("GET_STATE"); 
-            requestWakeLock();
+            send("GET_STATE"); requestWakeLock();
         }});
     }
 
-    // --- 4. DOOR COMMANDS & UI ---
+    // --- 4. DOOR COMMANDS ---
     function cmd(t, l) { 
         isStatusLocked = true; 
-        const s = document.getElementById('stat');
-        s.innerHTML = "WORKING..." + document.getElementById('pCont').outerHTML;
-        showProgress(8); 
-        setTimeout(() => { isStatusLocked = false; }, 8000); 
+        document.getElementById('stat').innerHTML = "WORKING..." + document.getElementById('pCont').outerHTML;
+        showProgress(8); setTimeout(() => { isStatusLocked = false; }, 8000); 
         addLog(l); send(t); 
     }
 
@@ -271,13 +280,25 @@
         }, 1000);
     }
 
-    // --- 5. SETTINGS & REPORTING ---
+    // --- 5. BUTTON FUNCTIONS (PIN, VOICE, SETTINGS) ---
     function send(c) { if(client && client.isConnected()) client.send(new Paho.MQTT.Message(c), "samxi/"+dev+"/cmd"); }
     function verifyPin() { if (audioCtx.state === 'suspended') audioCtx.resume(); send("VERIFY|" + document.getElementById('entryPin').value); }
+    function changePin() { let np = document.getElementById('newPin').value; if(np.length<4){alert("Min 4 Digits");return;} send("SETPIN|"+np); }
+    function saveVoice() { let k = document.getElementById('sKey').value, s = document.getElementById('sSecret').value, i = document.getElementById('sId').value; if(!k||!s||!i){alert("Fill all keys");return;} send("SINRIC|"+k+"|"+s+"|"+i); }
     function save() { send("CONFIG|" + document.getElementById('at').value + "|" + document.getElementById('ae').value); alert("Settings Saved"); }
+    function syncTelegram() { send("SETCHAT|" + document.getElementById('tgChatId').value.trim()); }
+    function factoryReset() { if(confirm("Wipe all settings?")) send('RESET_FACTORY'); }
+
+    // --- 6. HISTORY & REPORTING ---
     function openHistory() { renderSecurityUI(); document.getElementById('hModal').style.display = 'block'; }
     function downloadHistoryCSV() { let csv = "Date,Message\n"; JSON.parse(localStorage.getItem("samxi_logs") || "[]").forEach(l => csv += `${l.date},${l.msg}\n`); const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); link.download = "history.csv"; link.click(); }
-    function generatePDFReport() { let h = `<h1>SAMXI SENTINEL REPORT</h1><p>ID: ${dev}</p><table>`; JSON.parse(localStorage.getItem("local_security_records") || "[]").forEach(l => h += `<tr><td>${l.display}</td></tr>`); h += `</table>`; document.getElementById('printArea').innerHTML = h; window.print(); }
+    function generatePDFReport() { 
+        let printArea = document.getElementById('printArea');
+        if(!printArea) { alert("Missing printArea div in HTML!"); return; }
+        let h = `<h1>SAMXI SENTINEL REPORT</h1><p>ID: ${dev}</p><table>`; 
+        JSON.parse(localStorage.getItem("local_security_records") || "[]").forEach(l => h += `<tr><td>${l.display}</td></tr>`);
+        h += `</table>`; printArea.innerHTML = h; window.print(); 
+    }
     
     // UI Helpers
     function updateWiFi(r) { document.getElementById('wifiSig').style.display = 'flex'; document.getElementById('rssiVal').innerText = r + "dBm"; }
