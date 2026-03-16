@@ -64,14 +64,13 @@
         .toast-green { background-color: #2ecc71; border: 2px solid #27ae60; color: #141414 !important; }
         @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 40px; opacity: 1;} }
         @keyframes fadeout { from {bottom: 40px; opacity: 1;} to {bottom: 0; opacity: 0;} }
-        
-        /* PDF PRINT STYLES */
+
         @media print {
             body * { visibility: hidden; }
             #printArea, #printArea * { visibility: visible; }
             #printArea { position: absolute; left: 0; top: 0; width: 100%; color: black; background: white; text-align: left; padding: 20px; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #000; padding: 8px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px;}
+            th, td { border: 1px solid #ddd; padding: 8px; font-size: 12px;}
         }
     </style>
 </head>
@@ -120,10 +119,8 @@
             <label>Timer (sec):</label>
             <input type="number" id="at" onfocus="timerEditing=true" oninput="timerEditing=true">
             <button onclick="save()" style="background:#2ecc71; color:black; font-weight: bold; width: 100%; border-radius: 8px; padding: 15px; border: none; cursor: pointer; margin-top: 10px;">SAVE SETTINGS</button>
-            
             <hr style="border:0; border-top:1px solid #333; margin:20px 0;">
             <button onclick="openTgModal()" style="background:#3498db; color:white; font-weight: bold; width: 100%; border-radius: 8px; padding: 15px; border: none; cursor: pointer;"> SYNC TELEGRAM ALERTS</button>
-            
             <hr style="border:0; border-top:1px solid #333; margin:20px 0;">
             <label>Update PIN:</label>
             <input type="password" id="newPin" placeholder="4 Digits" maxlength="4">
@@ -167,7 +164,6 @@
             <div id="securityLogDisplay" style="margin-top:10px; max-height:250px; overflow-y:auto; font-size: 0.85rem; background:#000; padding:5px; border-radius:8px; border:1px solid #333;"></div>
             
             <button onclick="generatePDFReport()" style="background:#2ecc71; color:#141414; font-weight: bold; width: 100%; border-radius: 12px; padding: 15px; border: none; cursor: pointer; margin-top: 20px;">📄 GENERATE FORENSIC PDF</button>
-
             <button onclick="downloadHistoryCSV()" style="background:#3498db; color:white; font-weight: bold; width: 100%; border-radius: 12px; padding: 15px; border: none; cursor: pointer; margin-top: 10px;"> DOWNLOAD HISTORY (CSV)</button>
             <button onclick="clearHistory()" style="background:#444; color:white; font-weight: bold; width: 100%; border-radius: 8px; padding: 10px; border: none; cursor: pointer; margin-top: 20px;">CLEAR ALL LOGS</button>
             <button onclick="document.getElementById('hModal').style.display='none'" class="exit-link">EXIT</button>
@@ -241,22 +237,18 @@
             localStorage.setItem("samxi_logs", JSON.stringify(logs));
         }
 
-        // --- ENHANCED SECURITY COLORS ---
         function renderSecurityUI() {
             const display = document.getElementById("securityLogDisplay");
             let localAuthLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
             if (localAuthLogs.length === 0) {
-                display.innerHTML = "<p style='color:#666; text-align:center;'>No security events.</p>";
+                display.innerHTML = "<p style='color:#666; text-align:center;'>No security events recorded.</p>";
                 return;
             }
             display.innerHTML = localAuthLogs.map(l => {
-                let textColor = "#ff4d4d"; // Default Red
-                if(l.msg.includes("POWER")) textColor = "#f1c40f"; // Yellow
-                if(l.msg.includes("WiFi")) textColor = "#3498db"; // Blue
-                
-                return `<div style="padding:8px; border-bottom:1px solid #222; font-family:monospace; color:${textColor}; text-align:left;">
-                    ${l.display}
-                </div>`;
+                let textColor = "#ff4d4d"; 
+                if(l.msg.includes("POWER")) textColor = "#f1c40f"; 
+                if(l.msg.includes("WiFi")) textColor = "#3498db"; 
+                return `<div style="padding:8px; border-bottom:1px solid #222; font-family:monospace; color:${textColor}; text-align:left;">${l.display}</div>`;
             }).join('');
         }
 
@@ -345,11 +337,9 @@
                 }
             };
             client.onMessageArrived = (m) => {
-                let p = m.payloadString;
-                let topic = m.destinationName;
-                let s = document.getElementById('stat');
+                let p = m.payloadString, topic = m.destinationName, s = document.getElementById('stat');
                 
-                // --- FIX: ALWAYS UPDATE TIMESTAMP ON MESSAGE ---
+                // FIXED: REFRESH TIMESTAMP ON EVERY MESSAGE
                 const nowTime = new Date();
                 document.getElementById('lastUpdate').innerText = "Last update: " + nowTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                 
@@ -359,21 +349,13 @@
                 
                 if (topic.includes("/security")) {
                     let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-                    const now = new Date();
-                    const dateStr = now.toLocaleDateString();
+                    const dateStr = new Date().toLocaleDateString();
                     let parts = p.split('|');
                     if (parts.length < 3) return;
-                    let logId = parseInt(parts[0]);
-                    let espTime = parts[1];
-                    let logMsg = parts[2];
+                    let logId = parseInt(parts[0]), espTime = parts[1], logMsg = parts[2];
 
                     if (!securityLogs.some(l => l.id === logId && l.time === espTime)) {
-                        securityLogs.unshift({
-                            id: logId,
-                            time: espTime,
-                            msg: logMsg,
-                            display: logId + " | " + dateStr + " " + espTime + " | " + logMsg
-                        });
+                        securityLogs.unshift({ id: logId, time: espTime, msg: logMsg, display: logId + " | " + dateStr + " " + espTime + " | " + logMsg });
                         securityLogs.sort((a, b) => b.id - a.id);
                         if(securityLogs.length > 200) securityLogs = securityLogs.slice(0, 200);
                         localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
@@ -429,44 +411,71 @@
             }, onFailure: (e) => { setTimeout(connect, 5000); } });
         }
 
-        // --- NEW PDF REPORT FUNCTION ---
         function generatePDFReport() {
             const devId = localStorage.getItem("samxi_id") || "N/A";
             const regLogs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
             const secLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
             const printArea = document.getElementById('printArea');
-            
-            let html = `<div style="padding:20px; color:black;">`;
-            html += `<h2>SAMXI SENTINEL - SECURITY AUDIT REPORT</h2>`;
-            html += `<p><strong>Product ID:</strong> ${devId} | <strong>Report Generated:</strong> ${new Date().toLocaleString()}</p>`;
-            html += `<hr><h3>🛡️ SECURITY EVENTS (Un-authorized)</h3><table style="width:100%; text-align:left;"><tr><th>Slot/ID</th><th>Timestamp</th><th>Description</th></tr>`;
-            secLogs.forEach(l => { 
-                let p = l.display.split(' | ');
-                html += `<tr><td>${p[0]}</td><td>${p[1]}</td><td>${p[2]}</td></tr>`; 
-            });
-            html += `</table><h3>📋 GENERAL ACTIVITY LOG</h3><table style="width:100%; text-align:left;"><tr><th>Timestamp</th><th>Action</th></tr>`;
-            regLogs.slice(0, 50).forEach(l => { 
-                html += `<tr><td>${l.date}</td><td>${l.msg}</td></tr>`; 
-            });
+            let html = `<div style="padding:20px; color:black;"><h2>SAMXI SENTINEL - SECURITY AUDIT</h2><p>ID: ${devId} | ${new Date().toLocaleString()}</p><hr><h3>🛡️ SECURITY</h3><table style="width:100%;"><tr><th>Slot</th><th>Time</th><th>Event</th></tr>`;
+            secLogs.forEach(l => { let p = l.display.split(' | '); html += `<tr><td>${p[0]}</td><td>${p[1]}</td><td>${p[2]}</td></tr>`; });
+            html += `</table><h3>📋 ACTIVITY</h3><table style="width:100%;"><tr><th>Time</th><th>Action</th></tr>`;
+            regLogs.slice(0, 50).forEach(l => { html += `<tr><td>${l.date}</td><td>${l.msg}</td></tr>`; });
             html += `</table></div>`;
-            
-            printArea.innerHTML = html;
-            window.print();
+            printArea.innerHTML = html; window.print();
         }
 
         function verifyPin() { if(audioCtx.state === 'suspended') audioCtx.resume(); requestWakeLock(); send("VERIFY|" + document.getElementById('entryPin').value); }
-        function changePin() { let np = document.getElementById('newPin').value; if(np.length<4){alert("ENTER 4 DIGITS!"); return;} timerEditing = true; send("SETPIN|"+np); setTimeout(() => { timerEditing = false; }, 3000); alert("PIN UPDATED!"); }
-        function save() { let timerVal = document.getElementById('at').value; let autoVal = document.getElementById('ae').value; currentWait = timerVal; document.getElementById('abtn').style.display = (autoVal=="1") ? "block" : "none"; timerEditing = true; send("CONFIG|" + timerVal + "|" + autoVal); setTimeout(() => { timerEditing = false; }, 3000); alert("SETTINGS SAVED!"); }
+        function changePin() { let np = document.getElementById('newPin').value; if(np.length<4){alert("4 DIGITS!"); return;} send("SETPIN|"+np); }
+        function save() { let timerVal = document.getElementById('at').value, autoVal = document.getElementById('ae').value; currentWait = timerVal; document.getElementById('abtn').style.display = (autoVal=="1") ? "block" : "none"; send("CONFIG|" + timerVal + "|" + autoVal); alert("SAVED!"); }
         function openTgModal() { document.getElementById('modal').style.display = 'none'; document.getElementById('tgModal').style.display = 'block'; }
-        function syncTelegram() { let id = document.getElementById('tgChatId').value.trim(); if(id.length < 5) { showToast("Enter valid ID", "error"); return; } showToast("Syncing Telegram...", "green"); send("SETCHAT|" + id); }
+        
+        // FIXED TELEGRAM SYNC MESSAGE
+        function syncTelegram() { 
+            let id = document.getElementById('tgChatId').value.trim(); 
+            if(id.length < 5) { showToast("Enter valid ID", "error"); return; } 
+            showToast("Telegram SYC with Samxi Samrt Pro", "green"); // USER REQUESTED TEXT
+            send("SETCHAT|" + id); 
+        }
+
         function factoryReset() { if(confirm("Are you sure?")) send('RESET_FACTORY'); }
         function openVoiceModal() { document.getElementById('modal').style.display = 'none'; document.getElementById('voiceModal').style.display = 'block'; }
-        function saveVoice() { let k = document.getElementById('sKey').value.trim(), s = document.getElementById('sSecret').value.trim(), i = document.getElementById('sId').value.trim(); if(!k || !s || !i) { showToast("Missing keys!", "error"); return; } send("SINRIC|" + k + "|" + s + "|" + i); }
+        function saveVoice() { let k = document.getElementById('sKey').value, s = document.getElementById('sSecret').value, i = document.getElementById('sId').value; if(!k || !s || !i) { showToast("Missing keys!", "error"); return; } send("SINRIC|" + k + "|" + s + "|" + i); }
         function send(c) { if(client && client.isConnected()){ let m = new Paho.MQTT.Message(c); m.destinationName = "samxi/"+dev+"/cmd"; client.send(m); } }
-        function updateWiFi(rssi) { const box = document.getElementById('wifiSig'), val = document.getElementById('rssiVal'); box.style.display = 'flex'; val.innerText = rssi + "dBm"; }
+
+        // FIXED WIFI LEVELS (EXTREME, BEST, ETC)
+        function updateWiFi(rssi) {
+            const box = document.getElementById('wifiSig'), val = document.getElementById('rssiVal');
+            box.style.display = 'flex';
+            const r = parseInt(rssi);
+            let statusText = "";
+            if (r >= -50) { statusText = "EXTREME"; box.className = "wifi-box sig-excellent"; }
+            else if (r >= -60) { statusText = "BEST"; box.className = "wifi-box sig-excellent"; }
+            else if (r >= -70) { statusText = "GOOD"; box.className = "wifi-box sig-good"; }
+            else if (r >= -80) { statusText = "MODERATE"; box.className = "wifi-box sig-good"; }
+            else { statusText = "WEAK"; box.className = "wifi-box sig-weak"; }
+            val.innerText = statusText + " (" + r + "dBm)";
+        }
+
         function showProgress(d) { const bar = document.getElementById('pBar'); document.getElementById('pCont').style.display = 'block'; bar.style.width = '0%'; setTimeout(() => { bar.style.transition = `width ${d}s linear`; bar.style.width = '100%'; }, 50); }
         function hideProgress() { document.getElementById('pCont').style.display = 'none'; }
-        function freezePanel(s, forceAll = false) { document.querySelectorAll('#pg3 .btn').forEach(btn => { if (forceAll || btn.id !== 'abtn') s ? btn.classList.add('timer-lock') : btn.classList.remove('timer-lock'); }); }
+        function freezePanel(s, f = false) { document.querySelectorAll('#pg3 .btn').forEach(btn => { if (f || btn.id !== 'abtn') s ? btn.classList.add('timer-lock') : btn.classList.remove('timer-lock'); }); }
+
+        // FIXED CSV DOWNLOAD FUNCTION
+        function downloadHistoryCSV() {
+            let regLogs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
+            let secLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
+            if (!regLogs.length && !secLogs.length) { showToast("No logs!", "error"); return; }
+            let csv = "Type,Timestamp,Message\n";
+            secLogs.forEach(l => { csv += `SECURITY,${l.time},${l.msg.replace(/,/g, " ")}\n`; });
+            regLogs.forEach(l => { csv += `GENERAL,${l.date},${l.msg.replace(/,/g, " ")}\n`; });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `SAMXI_LOGS_${Date.now()}.csv`;
+            a.click();
+            showToast("CSV Downloaded!", "green");
+        }
 
         window.onload = function() {
             let savedID = localStorage.getItem("samxi_id"); if(savedID) document.getElementById('id').value = savedID;
