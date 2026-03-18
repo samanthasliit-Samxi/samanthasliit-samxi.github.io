@@ -363,24 +363,26 @@
                 document.getElementById('led').className="led green";
                 if(!isCountingDown) freezePanel(false, true);
                 
-                if (topic.includes("/security")) {
-                    let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-                    const dateStr = new Date().toLocaleDateString();
-                    let parts = p.split('|');
-                    if (parts.length < 3) return;
-                    let logId = parseInt(parts[0]), espTime = parts[1], logMsg = parts[2];
+           // --- FIND THIS PART ---
+if (topic.includes("/security")) {
+    let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
+    const dateStr = new Date().toLocaleDateString('en-GB'); // Format: DD/MM/YYYY
+    let parts = p.split('|');
+    if (parts.length < 3) return;
+    let logId = parseInt(parts[0]), espTime = parts[1], logMsg = parts[2];
 
-                    if (!securityLogs.some(l => l.id === logId && l.time === espTime)) {
-                        securityLogs.unshift({ id: logId, time: espTime, msg: logMsg, display: logId + " | " + dateStr + " " + espTime + " | " + logMsg });
-                        securityLogs.sort((a, b) => b.id - a.id);
-                        if(securityLogs.length > 200) securityLogs = securityLogs.slice(0, 200);
-                        localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
-                        if(document.getElementById('hModal').style.display === 'block') renderSecurityUI();
-                        showToast(`🛡️ LOGGED EVENT #${logId}`, "green");
-                    }
-                    return;
-                }
-
+    if (!securityLogs.some(l => l.id === logId && l.time === espTime)) {
+        // REPLACE THE LINE BELOW: Added "date: dateStr"
+        securityLogs.unshift({ id: logId, date: dateStr, time: espTime, msg: logMsg });
+        
+        securityLogs.sort((a, b) => b.id - a.id);
+        if(securityLogs.length > 200) securityLogs = securityLogs.slice(0, 200);
+        localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
+        if(document.getElementById('hModal').style.display === 'block') renderSecurityUI();
+        showToast(`🛡️ LOGGED EVENT #${logId}`, "green");
+    }
+    return;
+}
                 if (p === "OPENING" || p === "OPEN") {
                     if (lastSensorStatus !== "OPEN") { showToast("ALERT: Door is Opening!", "error"); vibrateAlert('opening'); addLog("Detected : GateOpened"); startGateReminder(); }
                     lastSensorStatus = "OPEN";
