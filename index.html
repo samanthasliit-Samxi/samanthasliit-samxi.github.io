@@ -155,20 +155,22 @@
             <button onclick="document.getElementById('voiceModal').style.display='none'; document.getElementById('modal').style.display='block';" class="exit-link" style="font-size: 1.5rem;">BACK</button>
         </div>
     </div>
-    <div id="hModal">
-        <div class="modal-content">
-            <h2 style="color:#2ecc71; margin-top:0;">ACTIVITY HISTORY</h2>
-            <ul id="logList"></ul>
-            <hr style="border:0; border-top:1px solid #333; margin:20px 0;">
-            <h3 style="color:#ff4d4d; margin:0; font-size:1.1rem;"> UN-AUTHORIZED LOG</h3>
-            <div id="securityLogDisplay" style="margin-top:10px; max-height:250px; overflow-y:auto; font-size: 0.85rem; background:#000; padding:5px; border-radius:8px; border:1px solid #333;"></div>
-            
-            <button onclick="generatePDFReport()" style="background:#2ecc71; color:#141414; font-weight: bold; width: 100%; border-radius: 12px; padding: 15px; border: none; cursor: pointer; margin-top: 20px;">📄 GENERATE FORENSIC PDF</button>
-            <button onclick="downloadHistoryCSV()" style="background:#3498db; color:white; font-weight: bold; width: 100%; border-radius: 12px; padding: 15px; border: none; cursor: pointer; margin-top: 10px;"> DOWNLOAD HISTORY (CSV)</button>
-            <button onclick="clearHistory()" style="background:#444; color:white; font-weight: bold; width: 100%; border-radius: 8px; padding: 10px; border: none; cursor: pointer; margin-top: 20px;">CLEAR ALL LOGS</button>
-            <button onclick="document.getElementById('hModal').style.display='none'" class="exit-link">EXIT</button>
-        </div>
+  <div id="hModal">
+    <div class="modal-content">
+        <h2 style="color:#2ecc71; margin-top:0;">ACTIVITY HISTORY</h2>
+        <ul id="logList"></ul>
+        <hr style="border:0; border-top:1px solid #333; margin:20px 0;">
+        
+        <h3 style="color:#ff4d4d; margin:0; font-size:1.1rem;"> UN-AUTHORIZED LOG</h3>
+        <div id="securityLogDisplay" style="margin-top:10px; max-height:250px; overflow-y:auto; font-size: 0.85rem; background:#000; padding:5px; border-radius:8px; border:1px solid #333;"></div>
+        
+        <button onclick="generatePDFReport()" style="background:#2ecc71; color:#141414; font-weight: bold; width: 100%; border-radius: 12px; padding: 15px; border: none; cursor: pointer; margin-top: 20px;">📄 DETAILED SECURITY REPORT</button>
+        
+        <button onclick="downloadHistoryCSV()" style="background:#3498db; color:white; font-weight: bold; width: 100%; border-radius: 12px; padding: 15px; border: none; cursor: pointer; margin-top: 10px;"> DOWNLOAD HISTORY (CSV)</button>
+        <button onclick="clearHistory()" style="background:#444; color:white; font-weight: bold; width: 100%; border-radius: 8px; padding: 10px; border: none; cursor: pointer; margin-top: 20px;">CLEAR ALL LOGS</button>
+        <button onclick="document.getElementById('hModal').style.display='none'" class="exit-link">EXIT</button>
     </div>
+</div>
     <div id="toast"></div>
 
     <script>
@@ -238,7 +240,8 @@
         }
 
         // --- START OF NEW SECURITY UI ---
-    function renderSecurityUI() {
+    // --- 1. UPDATED: Simple wording + Date inclusion ---
+function renderSecurityUI() {
     const display = document.getElementById("securityLogDisplay");
     let localAuthLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
     
@@ -256,7 +259,7 @@
         
         let sequenceNum = index + 1;
         
-        // --- ADDED ${l.date} BELOW ---
+        // Shows: "1. 18/03/2026 | 07:41:02"
         return `<div style="padding:10px; border-bottom:1px solid #222; font-family:sans-serif; color:${textColor}; text-align:left; display:flex; gap:10px;">
             <span style="color:#666; font-weight:bold; min-width:30px;">${sequenceNum}.</span>
             <div>
@@ -429,17 +432,25 @@ if (topic.includes("/security")) {
         }
 
        // --- START OF NEW PDF REPORT ---
-  function generatePDFReport() {
+// --- 2. UPDATED: Simple PDF Report (Renamed headers) ---
+function generatePDFReport() {
     const devId = localStorage.getItem("samxi_id") || "N/A";
     const secLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
     const regLogs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
+
+    if (secLogs.length === 0 && regLogs.length === 0) {
+        showToast("No data to show!", "error");
+        return;
+    }
+
+    secLogs.sort((a, b) => b.id - a.id);
 
     const printWin = window.open('', '_blank');
     
     let html = `
         <html>
         <head>
-            <title>SAMXI Pro Security Audit</title>
+            <title>SAMXI Pro Security Report</title>
             <style>
                 body { font-family: sans-serif; padding: 20px; color: #333; }
                 .header { text-align: center; border-bottom: 2px solid #2ecc71; padding-bottom: 10px; margin-bottom: 20px; }
@@ -451,11 +462,11 @@ if (topic.includes("/security")) {
         <body>
             <div class="header">
                 <h1 style="color:#2ecc71; margin:0;">SAMXI SMART PRO</h1>
-                <p>Forensic Security Audit Report</p>
-                <p style="font-size:12px;">Product ID: ${devId} | Generated: ${new Date().toLocaleString()}</p>
+                <p>Detailed Security Activity Report</p>
+                <p style="font-size:12px;">Product ID: ${devId} | Date: ${new Date().toLocaleDateString()}</p>
             </div>
 
-            <h3>🛡️ UN-AUTHORIZED EVENTS (Last 200)</h3>
+            <h3>🛡️ DETAILED LOGS</h3>
             <table>
                 <thead>
                     <tr>
@@ -481,7 +492,12 @@ if (topic.includes("/security")) {
 
     printWin.document.write(html);
     printWin.document.close();
-    setTimeout(() => { printWin.print(); printWin.close(); }, 500);
+    
+    // Note: User must select 'Save as PDF' in the window that opens
+    setTimeout(() => {
+        printWin.print();
+        printWin.close();
+    }, 500);
 }
         // --- END OF NEW PDF REPORT ---
 
