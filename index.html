@@ -166,7 +166,7 @@
             <div id="securityLogDisplay" style="margin-top:10px; max-height:250px; overflow-y:auto; font-size: 0.85rem; background:#000; padding:5px; border-radius:8px; border:1px solid #333;"></div>
             
             <button onclick="downloadPDFReport()" style="background:#2ecc71; color:#141414; font-weight: bold; width: 100%; border-radius: 12px; padding: 15px; border: none; cursor: pointer; margin-top: 20px;">📄 DOWNLOAD SECURITY AUDIT REPORT</button>
-            
+            <button onclick="downloadNetworkReport()" style="background:#f1c40f; color:#141414; font-weight: bold; width: 100%; border-radius: 12px; padding: 15px; border: none; cursor: pointer; margin-top: 10px;">📊 DOWNLOAD POWER & WIFI REPORT</button>          
             <button onclick="downloadHistoryCSV()" style="background:#3498db; color:white; font-weight: bold; width: 100%; border-radius: 12px; padding: 15px; border: none; cursor: pointer; margin-top: 10px;"> DOWNLOAD HISTORY (CSV)</button>
             <button onclick="clearHistory()" style="background:#444; color:white; font-weight: bold; width: 100%; border-radius: 8px; padding: 10px; border: none; cursor: pointer; margin-top: 20px;">CLEAR ALL LOGS</button>
             <button onclick="document.getElementById('hModal').style.display='none'" class="exit-link">EXIT</button>
@@ -530,6 +530,70 @@
             a.click();
             showToast("CSV Downloaded!", "green");
         }
+        function downloadNetworkReport() {
+    const devId = localStorage.getItem("samxi_id") || "N/A";
+    const allLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
+    
+    // Filter ONLY for Power and WiFi events
+    const netLogs = allLogs.filter(l => 
+        l.msg.includes("POWER") || l.msg.includes("WiFi")
+    );
+
+    if (netLogs.length === 0) {
+        showToast("No Power/WiFi events found!", "error");
+        return;
+    }
+
+    // Sort Newest First
+    netLogs.sort((a, b) => b.id - a.id);
+
+    const element = document.createElement('div');
+    element.style.padding = "20px";
+    element.style.color = "#333";
+    element.style.fontFamily = "sans-serif";
+
+    let tableRows = netLogs.map((l, i) => `
+        <tr>
+            <td style="border:1px solid #ddd; padding:8px;">${i + 1}</td>
+            <td style="border:1px solid #ddd; padding:8px;">${l.date || ''}</td>
+            <td style="border:1px solid #ddd; padding:8px;">${l.time}</td>
+            <td style="border:1px solid #ddd; padding:8px; font-weight:bold;">${l.msg}</td>
+        </tr>
+    `).join('');
+
+    element.innerHTML = `
+        <div style="text-align:center; border-bottom:2px solid #f1c40f; padding-bottom:10px; margin-bottom:20px;">
+            <h1 style="color:#2ecc71; margin:0;">SAMXI SMART PRO</h1>
+            <p style="margin:5px 0; font-weight:bold;">Power & Network Stability Report</p>
+            <p style="font-size:12px;">Device ID: ${devId} | Exported: ${new Date().toLocaleString()}</p>
+        </div>
+        <p style="font-size:13px;">This report lists all detected power failures and internet connectivity interruptions.</p>
+        <table style="width:100%; border-collapse:collapse; margin-top:10px;">
+            <thead>
+                <tr style="background:#f9f9f9;">
+                    <th style="border:1px solid #ddd; padding:8px; text-align:left;">#</th>
+                    <th style="border:1px solid #ddd; padding:8px; text-align:left;">Date</th>
+                    <th style="border:1px solid #ddd; padding:8px; text-align:left;">Time</th>
+                    <th style="border:1px solid #ddd; padding:8px; text-align:left;">Event Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${tableRows}
+            </tbody>
+        </table>
+    `;
+
+    const opt = {
+        margin:       10,
+        filename:     `SAMXI_Power_WiFi_Log_${devId}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    showToast("Preparing Diagnostic PDF...", "green");
+    html2pdf().set(opt).from(element).save();
+}
 
         window.onload = function() {
             let savedID = localStorage.getItem("samxi_id"); if(savedID) document.getElementById('id').value = savedID;
