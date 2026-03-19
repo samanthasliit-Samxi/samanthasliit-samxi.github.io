@@ -346,66 +346,56 @@
                     freezePanel(true, true);
                 }
             };
-            client.onMessageArrived = (m) => {
-                let p = m.payloadString, topic = m.destinationName, s = document.getElementById('stat');
-                const nowTime = new Date();
-                document.getElementById('lastUpdate').innerText = "Last update: " + nowTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                lastMsgTime = Date.now();
-                document.getElementById('led').className="led green";
-                if(!isCountingDown) freezePanel(false, true);
-               
-                if (topic.includes("/security")) {
-                    let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-                    const dateStr = new Date().toLocaleDateString('en-GB');
-                    let parts = p.split('|');
-                    if (parts.length < 3) return;
-                    let logId = parseInt(parts[0]), espTime = parts[1], logMsg = parts[2];
-                    if (!securityLogs.some(l => l.id === logId && l.time === espTime)) {
-                        securityLogs.unshift({ id: logId, date: dateStr, time: espTime, msg: logMsg });
-                        securityLogs.sort((a, b) => b.id - a.id);
-                        if(securityLogs.length > 200) securityLogs = securityLogs.slice(0, 200);
-                        localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
-                        if(document.getElementById('hModal').style.display === 'block') renderSecurityUI();
-                        showToast(`🛡️ LOGGED EVENT #${logId}`, "green");
-                    }
-                    return;
-                }
-                if (p === "OPENING" || p === "OPEN") {
-                    if (lastSensorStatus !== "OPEN") { showToast("ALERT: Door is Opening!", "error"); vibrateAlert('opening'); addLog("Detected : GateOpened"); startGateReminder(); }
-                    lastSensorStatus = "OPEN";
-                    if(!isStatusLocked) { s.innerHTML = "GATE OPENED" + document.getElementById('pCont').outerHTML; s.style.backgroundColor = "#3a1e1e"; hideProgress(); }
-                } else if (p === "CLOSED") {
-                    if (lastSensorStatus !== "CLOSED") { showToast("SUCCESS: Door is Closed", "green"); vibrateAlert('closed'); addLog("Detected : GateClosed"); stopGateReminder(); }
-                    lastSensorStatus = "CLOSED";
-                    if(!isStatusLocked) { s.innerHTML = "GATE CLOSED" + document.getElementById('pCont').outerHTML; s.style.backgroundColor = "#1e3a1e"; hideProgress(); }
-                }
-                if (p === "OFFLINE" && !isCountingDown) {
-                    document.getElementById('led').className = "led red";
-                    if(!isStatusLocked) s.innerHTML = "OFFLINE" + document.getElementById('pCont').outerHTML;
-                    freezePanel(true, true);
-                    return;
-                }
-                if (p === "PIN_OK") {
-                    localStorage.setItem("samxi_pin", document.getElementById('entryPin').value);
-                    document.getElementById('pg2').style.display='none'; document.getElementById('pg3').style.display='block';
-                    document.getElementById('gear').style.visibility='visible'; send("GET_STATE");
-                } else if (p === "WRONG_PIN") { alert("Wrong PIN!"); }
-                else if (p === "ONLINE" || p === "PAUSED" || p.startsWith("DATA|")) {
-                    document.getElementById('pg1').style.display='none';
-                    if(document.getElementById('pg3').style.display !== 'block') document.getElementById('pg2').style.display='block';
-                    if(p.startsWith("DATA|")) {
-                        let d = p.split("|");
-                        updateWiFi(d[1]);
-                        if (!timerEditing) { document.getElementById('at').value = d[3]; currentWait = d[3]; document.getElementById('ae').value = d[2]; document.getElementById('abtn').style.display = (d[2]=="1") ? "block" : "none"; }
-                        if(!isStatusLocked) {
-                            if(p.includes("OPEN")) { lastSensorStatus = "OPEN"; s.innerHTML = "GATE OPENED" + document.getElementById('pCont').outerHTML; s.style.backgroundColor = "#3a1e1e"; }
-                            else if(p.includes("CLOSED")) { lastSensorStatus = "CLOSED"; s.innerHTML = "GATE CLOSED" + document.getElementById('pCont').outerHTML; s.style.backgroundColor = "#1e3a1e"; }
-                        }
-                    } else if (p === "START_AUTO") { startAuto(); }
-                    else if (p === "PIN_CHANGED") { localStorage.setItem("samxi_pin", document.getElementById('newPin').value); document.getElementById('entryPin').value = document.getElementById('newPin').value; showToast("PIN UPDATED", "green"); timerEditing = false; }
-                    else if (p === "VOICE_LINKED") { showToast("VOICE SYNCED", "green"); }
-                }
-            };
+client.onMessageArrived = (m) => {
+    let p = m.payloadString.trim(); 
+    let topic = m.destinationName;
+    let s = document.getElementById('stat');
+    
+    // DEBUG: See exactly what the door sends in the browser console
+    console.log("Door Response: [" + p + "] on topic: " + topic);
+
+    // 1. SECURITY LOGS
+    if (topic.includes("/security")) {
+        let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
+        let parts = p.split('|');
+        if (parts.length < 3) return;
+        securityLogs.unshift({ id: parts[0], date: new Date().toLocaleDateString('en-GB'), time: parts[1], msg: parts[2] });
+        if(securityLogs.length > 200) securityLogs.pop();
+        localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
+        renderSecurityUI();
+        showToast(`🛡️ LOGGED EVENT #${parts[0]}`, "green");
+        return;
+    }
+
+    // 2. SUCCESS MESSAGES (The fix)
+    // We use .includes to be safe from hidden characters
+    if (p.includes("PIN_CHANGED")) { 
+        showToast("PIN UPDATED SUCCESSFULLY", "green");
+        console.log("Success: PIN Change acknowledged");
+    } 
+    else if (p.includes("VOICE_LINKED")) { 
+        showToast("VOICE SETUP SUCCESSFULLY", "green"); 
+        console.log("Success: Voice Setup acknowledged");
+    }
+
+    // 3. DOOR STATE
+    if (p === "OPEN" || p === "CLOSED") {
+        lastSensorStatus = p;
+        if(s) {
+            s.innerHTML = "GATE " + p + "ED" + (document.getElementById('pCont') ? document.getElementById('pCont').outerHTML : "");
+            s.style.backgroundColor = (p === "OPEN") ? "#3a1e1e" : "#1e3a1e";
+        }
+        addLog("Detected : Gate " + p);
+    }
+
+    // 4. LOGIN SYNC
+    if (p.startsWith("DATA|") || p === "ONLINE") {
+        document.getElementById('pg1').style.display='none';
+        document.getElementById('pg2').style.display='none';
+        document.getElementById('pg3').style.display='block';
+        document.getElementById('gear').style.visibility='visible';
+    }
+};
             client.connect({ useSSL: true, keepAliveInterval: 10, timeout: 5, onSuccess: () => {
                 client.subscribe("samxi/" + dev + "/state", { qos: 1 });
                 client.subscribe("samxi/" + dev + "/security/#", { qos: 1 });
