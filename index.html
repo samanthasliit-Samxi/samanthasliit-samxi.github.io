@@ -6,10 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2ecc71">
-    
+   
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    
+   
     <style>
         .modal-content button {
             width: 100%; height: 55px; margin: 10px 0; padding: 0; font-size: 1.1rem;
@@ -161,10 +161,10 @@
             <h2 style="color:#2ecc71; margin-top:0;">ACTIVITY HISTORY</h2>
             <ul id="logList"></ul>
             <hr style="border:0; border-top:1px solid #333; margin:20px 0;">
-            
+           
             <h3 style="color:#ff4d4d; margin:0; font-size:1.1rem;"> UN-AUTHORIZED LOG</h3>
             <div id="securityLogDisplay" style="margin-top:10px; max-height:250px; overflow-y:auto; font-size: 0.85rem; background:#000; padding:5px; border-radius:8px; border:1px solid #333;"></div>
-            
+           
             <button onclick="downloadPDFReport()" style="background:#2ecc71; color:#141414; font-weight: bold; width: 100%; border-radius: 12px; padding: 15px; border: none; cursor: pointer; margin-top: 20px;">📄 DOWNLOAD SECURITY AUDIT REPORT</button>
             <button onclick="downloadNetworkReport()" style="background:#f1c40f; color:#141414; font-weight: bold; width: 100%; border-radius: 12px; padding: 15px; border: none; cursor: pointer; margin-top: 10px;">📊 DOWNLOAD POWER & WIFI REPORT</button>          
             <button onclick="downloadHistoryCSV()" style="background:#3498db; color:white; font-weight: bold; width: 100%; border-radius: 12px; padding: 15px; border: none; cursor: pointer; margin-top: 10px;"> DOWNLOAD HISTORY (CSV)</button>
@@ -249,9 +249,9 @@
             }
             localAuthLogs.sort((a, b) => b.id - a.id);
             display.innerHTML = localAuthLogs.map((l, index) => {
-                let textColor = "#ff4d4d"; 
-                if(l.msg.includes("POWER")) textColor = "#f1c40f"; 
-                if(l.msg.includes("WiFi")) textColor = "#3498db"; 
+                let textColor = "#ff4d4d";
+                if(l.msg.includes("POWER")) textColor = "#f1c40f";
+                if(l.msg.includes("WiFi")) textColor = "#3498db";
                 let sequenceNum = index + 1;
                 return `<div style="padding:10px; border-bottom:1px solid #222; font-family:sans-serif; color:${textColor}; text-align:left; display:flex; gap:10px;">
                     <span style="color:#666; font-weight:bold; min-width:30px;">${sequenceNum}.</span>
@@ -353,10 +353,10 @@
                 lastMsgTime = Date.now();
                 document.getElementById('led').className="led green";
                 if(!isCountingDown) freezePanel(false, true);
-                
+               
                 if (topic.includes("/security")) {
                     let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-                    const dateStr = new Date().toLocaleDateString('en-GB'); 
+                    const dateStr = new Date().toLocaleDateString('en-GB');
                     let parts = p.split('|');
                     if (parts.length < 3) return;
                     let logId = parseInt(parts[0]), espTime = parts[1], logMsg = parts[2];
@@ -415,75 +415,69 @@
             }, onFailure: (e) => { setTimeout(connect, 5000); } });
         }
 
-    function downloadPDFReport() {
+       function downloadPDFReport() {
     const devId = localStorage.getItem("samxi_id") || "N/A";
     const secLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-    
+   
     if (secLogs.length === 0) {
         showToast("No security data to export!", "error");
         return;
     }
 
+    // Sort logs (Newest at top)
     secLogs.sort((a, b) => b.id - a.id);
 
+    // 1. Create the content for the PDF
     const element = document.createElement('div');
-    // --- PROFESSIONAL GRID STYLING ---
     element.style.padding = "20px";
     element.style.color = "#333";
     element.style.fontFamily = "sans-serif";
-    element.style.position = "relative";
-    element.style.backgroundColor = "white";
-    // This creates the light green technical grid
-    element.style.backgroundImage = `
-        linear-gradient(rgba(46, 204, 113, 0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(46, 204, 113, 0.05) 1px, transparent 1px)
-    `;
-    element.style.backgroundSize = "20px 20px";
 
     let tableRows = secLogs.map((l, i) => `
         <tr>
-            <td style="border:1px solid #ddd; padding:8px; background: rgba(255,255,255,0.8);">${i + 1}</td>
-            <td style="border:1px solid #ddd; padding:8px; background: rgba(255,255,255,0.8);">${l.date || ''}</td>
-            <td style="border:1px solid #ddd; padding:8px; background: rgba(255,255,255,0.8);">${l.time}</td>
-            <td style="border:1px solid #ddd; padding:8px; background: rgba(255,255,255,0.8);">${l.msg}</td>
+            <td style="border:1px solid #ddd; padding:8px;">${i + 1}</td>
+            <td style="border:1px solid #ddd; padding:8px;">${l.date || ''}</td>
+            <td style="border:1px solid #ddd; padding:8px;">${l.time}</td>
+            <td style="border:1px solid #ddd; padding:8px;">${l.msg}</td>
         </tr>
     `).join('');
 
     element.innerHTML = `
-        <div style="text-align:center; border-bottom:3px solid #2ecc71; padding-bottom:10px; margin-bottom:20px; position:relative; z-index:10;">
-            <h1 style="color:#2ecc71; margin:0; letter-spacing:2px;">SAMXI SMART PRO</h1>
-            <p style="margin:5px 0; font-weight:bold; color:#444;">FORENSIC SECURITY AUDIT REPORT</p>
-            <p style="font-size:11px; color:#777;">Device Auth ID: ${devId} | Protocol: AES-256 SYNC</p>
+        <div style="text-align:center; border-bottom:2px solid #2ecc71; padding-bottom:10px; margin-bottom:20px;">
+            <h1 style="color:#2ecc71; margin:0;">SAMXI SMART PRO</h1>
+            <p style="margin:5px 0;">Security Audit Report</p>
+            <p style="font-size:12px;">Device ID: ${devId} | Exported: ${new Date().toLocaleString()}</p>
         </div>
-        
-        <table style="width:100%; border-collapse:collapse; position:relative; z-index:10;">
+        <h3 style="color:#d35400;">🛡️ DETAILED SECURITY LOGS</h3>
+        <table style="width:100%; border-collapse:collapse;">
             <thead>
-                <tr style="background:#2ecc71; color:white;">
-                    <th style="padding:10px; text-align:left;">Index</th>
-                    <th style="padding:10px; text-align:left;">Date</th>
-                    <th style="padding:10px; text-align:left;">Timestamp</th>
-                    <th style="padding:10px; text-align:left;">Security Event Classification</th>
+                <tr style="background:#f4f4f4;">
+                    <th style="border:1px solid #ddd; padding:8px; text-align:left;">#</th>
+                    <th style="border:1px solid #ddd; padding:8px; text-align:left;">Date</th>
+                    <th style="border:1px solid #ddd; padding:8px; text-align:left;">Time</th>
+                    <th style="border:1px solid #ddd; padding:8px; text-align:left;">Event Description</th>
                 </tr>
             </thead>
             <tbody>
                 ${tableRows}
             </tbody>
         </table>
-        
-        <div style="margin-top:40px; text-align:center; font-size:9px; color:#aaa;">
-            <p>CONFIDENTIAL DOCUMENT - PROPERTY OF SAMXI SMART SYSTEMS</p>
-            <p>Verification Code: ${Math.random().toString(36).toUpperCase().substring(2,10)}</p>
+        <div style="margin-top:30px; font-size:10px; color:#888; text-align:center;">
+            This is an official hardware-generated security record from the Samxi Smart Door System.
         </div>
     `;
 
+    // 2. PDF Configuration
     const opt = {
-        margin: 10,
-        filename: `SAMXI_Security_Audit_${devId}.pdf`,
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        margin:       10,
+        filename:     `SAMXI_Audit_${devId}_${Date.now()}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    showToast("Generating Forensic PDF...", "green");
+    // 3. Generate and Download
+    showToast("Generating PDF File...", "green");
     html2pdf().set(opt).from(element).save();
 }
 
@@ -491,12 +485,12 @@
         function changePin() { let np = document.getElementById('newPin').value; if(np.length<4){alert("4 DIGITS!"); return;} send("SETPIN|"+np); }
         function save() { let timerVal = document.getElementById('at').value, autoVal = document.getElementById('ae').value; currentWait = timerVal; document.getElementById('abtn').style.display = (autoVal=="1") ? "block" : "none"; send("CONFIG|" + timerVal + "|" + autoVal); alert("SAVED!"); }
         function openTgModal() { document.getElementById('modal').style.display = 'none'; document.getElementById('tgModal').style.display = 'block'; }
-        
-        function syncTelegram() { 
-            let id = document.getElementById('tgChatId').value.trim(); 
-            if(id.length < 5) { showToast("Enter valid ID", "error"); return; } 
-            showToast("Telegram SYC with Samxi Samrt Pro", "green"); 
-            send("SETCHAT|" + id); 
+       
+        function syncTelegram() {
+            let id = document.getElementById('tgChatId').value.trim();
+            if(id.length < 5) { showToast("Enter valid ID", "error"); return; }
+            showToast("Telegram SYC with Samxi Samrt Pro", "green");
+            send("SETCHAT|" + id);
         }
 
         function factoryReset() { if(confirm("Are you sure?")) send('RESET_FACTORY'); }
@@ -536,50 +530,51 @@
             a.click();
             showToast("CSV Downloaded!", "green");
         }
-  function downloadNetworkReport() {
+        function downloadNetworkReport() {
     const devId = localStorage.getItem("samxi_id") || "N/A";
     const allLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-    const netLogs = allLogs.filter(l => l.msg.includes("POWER") || l.msg.includes("WiFi"));
+   
+    // Filter ONLY for Power and WiFi events
+    const netLogs = allLogs.filter(l =>
+        l.msg.includes("POWER") || l.msg.includes("WiFi")
+    );
 
     if (netLogs.length === 0) {
-        showToast("No continuity events found!", "error");
+        showToast("No Power/WiFi events found!", "error");
         return;
     }
 
+    // Sort Newest First
+    netLogs.sort((a, b) => b.id - a.id);
+
     const element = document.createElement('div');
     element.style.padding = "20px";
+    element.style.color = "#333";
     element.style.fontFamily = "sans-serif";
-    element.style.backgroundColor = "white";
-    // --- BLUE BLUEPRINT GRID ---
-    element.style.backgroundImage = `
-        linear-gradient(rgba(52, 152, 219, 0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(52, 152, 219, 0.05) 1px, transparent 1px)
-    `;
-    element.style.backgroundSize = "25px 25px";
 
     let tableRows = netLogs.map((l, i) => `
         <tr>
-            <td style="border:1px solid #ddd; padding:8px; background: rgba(255,255,255,0.9);">${i + 1}</td>
-            <td style="border:1px solid #ddd; padding:8px; background: rgba(255,255,255,0.9);">${l.date || ''}</td>
-            <td style="border:1px solid #ddd; padding:8px; background: rgba(255,255,255,0.9);">${l.time}</td>
-            <td style="border:1px solid #ddd; padding:8px; font-weight:bold; background: rgba(255,255,255,0.9);">${l.msg}</td>
+            <td style="border:1px solid #ddd; padding:8px;">${i + 1}</td>
+            <td style="border:1px solid #ddd; padding:8px;">${l.date || ''}</td>
+            <td style="border:1px solid #ddd; padding:8px;">${l.time}</td>
+            <td style="border:1px solid #ddd; padding:8px; font-weight:bold;">${l.msg}</td>
         </tr>
     `).join('');
 
     element.innerHTML = `
-        <div style="text-align:center; border-bottom:3px solid #3498db; padding-bottom:10px; margin-bottom:20px;">
+        <div style="text-align:center; border-bottom:2px solid #f1c40f; padding-bottom:10px; margin-bottom:20px;">
             <h1 style="color:#2ecc71; margin:0;">SAMXI SMART PRO</h1>
-            <p style="margin:5px 0; font-weight:bold; font-size:16px; color:#3498db;">OPERATIONAL CONTINUITY & POWER RESILIENCE AUDIT</p>
-            <p style="font-size:11px; color:#666;">Diagnostic ID: ${devId} | Generated: ${new Date().toLocaleString()}</p>
+            <p style="margin:5px 0; font-weight:bold;">Power & Network Stability Report</p>
+            <p style="font-size:12px;">Device ID: ${devId} | Exported: ${new Date().toLocaleString()}</p>
         </div>
-        
-        <table style="width:100%; border-collapse:collapse;">
+        <p style="font-size:13px;">This report lists all detected power failures and internet connectivity interruptions.</p>
+        <table style="width:100%; border-collapse:collapse; margin-top:10px;">
             <thead>
-                <tr style="background:#3498db; color:white;">
-                    <th style="padding:10px; text-align:left;">Seq</th>
-                    <th style="padding:10px; text-align:left;">Date</th>
-                    <th style="padding:10px; text-align:left;">Timestamp</th>
-                    <th style="padding:10px; text-align:left;">Infrastructure Event Details</th>
+                <tr style="background:#f9f9f9;">
+                    <th style="border:1px solid #ddd; padding:8px; text-align:left;">#</th>
+                    <th style="border:1px solid #ddd; padding:8px; text-align:left;">Date</th>
+                    <th style="border:1px solid #ddd; padding:8px; text-align:left;">Time</th>
+                    <th style="border:1px solid #ddd; padding:8px; text-align:left;">Event Details</th>
                 </tr>
             </thead>
             <tbody>
@@ -589,13 +584,14 @@
     `;
 
     const opt = {
-        margin: 10,
-        filename: `SAMXI_Continuity_Audit_${devId}.pdf`,
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        margin:       10,
+        filename:     `SAMXI_Power_WiFi_Log_${devId}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    showToast("Generating Audit Report...", "green");
+    showToast("Preparing Diagnostic PDF...", "green");
     html2pdf().set(opt).from(element).save();
 }
 
@@ -606,3 +602,4 @@
     </script>
 </body>
 </html>
+
