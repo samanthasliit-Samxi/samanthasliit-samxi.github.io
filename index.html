@@ -346,72 +346,57 @@
                     freezePanel(true, true);
                 }
             };
-            client.onMessageArrived = (m) => {
-                let p = m.payloadString, topic = m.destinationName, s = document.getElementById('stat');
-                const nowTime = new Date();
-                document.getElementById('lastUpdate').innerText = "Last update: " + nowTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                lastMsgTime = Date.now();
-                document.getElementById('led').className="led green";
-                if(!isCountingDown) freezePanel(false, true);
-               
-                if (topic.includes("/security")) {
-                    let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-                    const dateStr = new Date().toLocaleDateString('en-GB');
-                    let parts = p.split('|');
-                    if (parts.length < 3) return;
-                    let logId = parseInt(parts[0]), espTime = parts[1], logMsg = parts[2];
-                    if (!securityLogs.some(l => l.id === logId && l.time === espTime)) {
-                        securityLogs.unshift({ id: logId, date: dateStr, time: espTime, msg: logMsg });
-                        securityLogs.sort((a, b) => b.id - a.id);
-                        if(securityLogs.length > 200) securityLogs = securityLogs.slice(0, 200);
-                        localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
-                        if(document.getElementById('hModal').style.display === 'block') renderSecurityUI();
-                        showToast(`🛡️ LOGGED EVENT #${logId}`, "green");
-                    }
-                    return;
-                }
-                if (p === "OPENING" || p === "OPEN") {
-                    if (lastSensorStatus !== "OPEN") { showToast("ALERT: Door is Opening!", "error"); vibrateAlert('opening'); addLog("Detected : GateOpened"); startGateReminder(); }
-                    lastSensorStatus = "OPEN";
-                    if(!isStatusLocked) { s.innerHTML = "GATE OPENED" + document.getElementById('pCont').outerHTML; s.style.backgroundColor = "#3a1e1e"; hideProgress(); }
-                } else if (p === "CLOSED") {
-                    if (lastSensorStatus !== "CLOSED") { showToast("SUCCESS: Door is Closed", "green"); vibrateAlert('closed'); addLog("Detected : GateClosed"); stopGateReminder(); }
-                    lastSensorStatus = "CLOSED";
-                    if(!isStatusLocked) { s.innerHTML = "GATE CLOSED" + document.getElementById('pCont').outerHTML; s.style.backgroundColor = "#1e3a1e"; hideProgress(); }
-                }
-                if (p === "OFFLINE" && !isCountingDown) {
-                    document.getElementById('led').className = "led red";
-                    if(!isStatusLocked) s.innerHTML = "OFFLINE" + document.getElementById('pCont').outerHTML;
-                    freezePanel(true, true);
-                    return;
-                }
-                if (p === "PIN_OK") {
-                    localStorage.setItem("samxi_pin", document.getElementById('entryPin').value);
-                    document.getElementById('pg2').style.display='none'; document.getElementById('pg3').style.display='block';
-                    document.getElementById('gear').style.visibility='visible'; send("GET_STATE");
-                } else if (p === "WRONG_PIN") { alert("Wrong PIN!"); }
-                else if (p === "ONLINE" || p === "PAUSED" || p.startsWith("DATA|")) {
-                    document.getElementById('pg1').style.display='none';
-                    if(document.getElementById('pg3').style.display !== 'block') document.getElementById('pg2').style.display='block';
-                    if(p.startsWith("DATA|")) {
-                        let d = p.split("|");
-                        updateWiFi(d[1]);
-                        if (!timerEditing) { document.getElementById('at').value = d[3]; currentWait = d[3]; document.getElementById('ae').value = d[2]; document.getElementById('abtn').style.display = (d[2]=="1") ? "block" : "none"; }
-                        if(!isStatusLocked) {
-                            if(p.includes("OPEN")) { lastSensorStatus = "OPEN"; s.innerHTML = "GATE OPENED" + document.getElementById('pCont').outerHTML; s.style.backgroundColor = "#3a1e1e"; }
-                            else if(p.includes("CLOSED")) { lastSensorStatus = "CLOSED"; s.innerHTML = "GATE CLOSED" + document.getElementById('pCont').outerHTML; s.style.backgroundColor = "#1e3a1e"; }
-                        }
-                    } else if (p === "PIN_CHANGED") { 
-    localStorage.setItem("samxi_pin", document.getElementById('newPin').value); 
-    document.getElementById('entryPin').value = document.getElementById('newPin').value; 
-    showToast("PIN UPDATED SUCCESSFULLY", "green"); // Updated
-    timerEditing = false; 
-}
-else if (p === "VOICE_LINKED") { 
-    showToast("VOICE SETUP SUCCESSFULLY", "green"); // Updated
-}
-                }
-            };
+client.onMessageArrived = (m) => {
+    let p = m.payloadString.trim(); // Added trim() to remove hidden spaces
+    let topic = m.destinationName;
+    let s = document.getElementById('stat');
+    
+    // Log to console so you can see exactly what arrives
+    console.log("MQTT Received:", p);
+
+    // 1. Handle Security Logs
+    if (topic.includes("/security")) {
+        let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
+        let parts = p.split('|');
+        if (parts.length < 3) return;
+        securityLogs.unshift({ id: parts[0], date: new Date().toLocaleDateString('en-GB'), time: parts[1], msg: parts[2] });
+        if(securityLogs.length > 200) securityLogs.pop();
+        localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
+        renderSecurityUI(); // Ensure this function exists in your code
+        showToast(`🛡️ LOGGED EVENT #${parts[0]}`, "green");
+        return;
+    }
+
+    // 2. Success Replays (PIN & VOICE)
+    if (p.includes("PIN_CHANGED")) { 
+        showToast("PIN UPDATED SUCCESSFULLY", "green");
+        // Update stored PIN if you have a newPin input
+        if(document.getElementById('newPin')) {
+            localStorage.setItem("samxi_pin", document.getElementById('newPin').value);
+        }
+    } 
+    else if (p.includes("VOICE_LINKED")) { 
+        showToast("VOICE SETUP SUCCESSFULLY", "green"); 
+    }
+
+    // 3. Status Updates
+    if (p === "OPEN" || p === "CLOSED") {
+        lastSensorStatus = p;
+        if(s) {
+            s.innerHTML = "GATE " + p + "ED" + (document.getElementById('pCont') ? document.getElementById('pCont').outerHTML : "");
+            s.style.backgroundColor = (p === "OPEN") ? "#3a1e1e" : "#1e3a1e";
+        }
+        addLog("Detected : Gate" + p);
+    }
+    
+    // 4. Data/App State Sync
+    if (p.startsWith("DATA|") || p === "ONLINE") {
+        if(document.getElementById('pg1')) document.getElementById('pg1').style.display='none';
+        if(document.getElementById('pg2')) document.getElementById('pg2').style.display='none';
+        if(document.getElementById('pg3')) document.getElementById('pg3').style.display='block';
+        if(document.getElementById('gear')) document.getElementById('gear').style.visibility='visible';
+    }
+};
             client.connect({ useSSL: true, keepAliveInterval: 10, timeout: 5, onSuccess: () => {
                 client.subscribe("samxi/" + dev + "/state", { qos: 1 });
                 client.subscribe("samxi/" + dev + "/security/#", { qos: 1 });
@@ -488,7 +473,12 @@ else if (p === "VOICE_LINKED") {
 }
 
         function verifyPin() { if(audioCtx.state === 'suspended') audioCtx.resume(); requestWakeLock(); send("VERIFY|" + document.getElementById('entryPin').value); }
-        function changePin() { let np = document.getElementById('newPin').value; if(np.length<4){alert("4 DIGITS!"); return;} send("SETPIN|"+np); }
+       function changePin() {
+    let np = document.getElementById('newPin').value;
+    if(np.length < 4) { alert("PIN must be 4 digits!"); return; }
+    send("SETPIN|" + np);
+    // document.getElementById('newPin').value = ""; // Optional: clear after sending
+}
         function save() { let timerVal = document.getElementById('at').value, autoVal = document.getElementById('ae').value; currentWait = timerVal; document.getElementById('abtn').style.display = (autoVal=="1") ? "block" : "none"; send("CONFIG|" + timerVal + "|" + autoVal); alert("SAVED!"); }
         function openTgModal() { document.getElementById('modal').style.display = 'none'; document.getElementById('tgModal').style.display = 'block'; }
        
@@ -521,25 +511,27 @@ else if (p === "VOICE_LINKED") {
         function hideProgress() { document.getElementById('pCont').style.display = 'none'; }
         function freezePanel(s, f = false) { document.querySelectorAll('#pg3 .btn').forEach(btn => { if (f || btn.id !== 'abtn') s ? btn.classList.add('timer-lock') : btn.classList.remove('timer-lock'); }); }
 
-        function downloadHistoryCSV() {
+ function downloadHistoryCSV() {
     let regLogs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
     let secLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
     
-    if (!regLogs.length && !secLogs.length) { 
+    if (regLogs.length === 0 && secLogs.length === 0) { 
         showToast("No logs found to download!", "error"); 
         return; 
     }
     
-    let csv = "Type,Activity Date/Timestamp,Details\n";
+    let csv = "EVENT TYPE,DATE,TIME,DESCRIPTION\n";
     
-    // 1. Add Security Logs
+    // Process Security Logs (Un-Authorized)
     secLogs.forEach(l => { 
-        csv += `SECURITY,${l.date || ''} ${l.time},${l.msg.replace(/,/g, " ")}\n`; 
+        // Security logs use parts[1] for time and parts[2] for msg
+        csv += `SECURITY,${l.date || ''},${l.time || ''},${(l.msg || '').replace(/,/g, " ")}\n`; 
     });
     
-    // 2. Add Activity Logs
+    // Process Activity Logs (General History)
     regLogs.forEach(l => { 
-        csv += `ACTIVITY,${l.date},${l.msg.replace(/,/g, " ")}\n`; 
+        // Activity logs store date/time as one string usually
+        csv += `ACTIVITY,${l.date || ''}, ,${(l.msg || '').replace(/,/g, " ")}\n`; 
     });
     
     const blob = new Blob([csv], { type: 'text/csv' });
