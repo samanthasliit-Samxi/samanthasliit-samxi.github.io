@@ -347,53 +347,118 @@
                 }
             };
 client.onMessageArrived = (m) => {
-    let p = m.payloadString.trim(); 
+    let p = m.payloadString.trim();
     let topic = m.destinationName;
     let s = document.getElementById('stat');
-    
-    // DEBUG: See exactly what the door sends in the browser console
-    console.log("Door Response: [" + p + "] on topic: " + topic);
+    const nowTime = new Date();
 
-    // 1. SECURITY LOGS
+    // 1. UPDATE "LAST SYNC" TIME (Fixes the missing Sync Time)
+    const timeDisplay = document.getElementById('lastUpdate');
+    if (timeDisplay) {
+        timeDisplay.innerText = "Last update: " + nowTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+    lastMsgTime = Date.now();
+    document.getElementById('led').className = "led green";
+
+    // 2. HANDLE SECURITY LOGS (Un-Authorized Log)
     if (topic.includes("/security")) {
         let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
+        const dateStr = new Date().toLocaleDateString('en-GB');
         let parts = p.split('|');
         if (parts.length < 3) return;
-        securityLogs.unshift({ id: parts[0], date: new Date().toLocaleDateString('en-GB'), time: parts[1], msg: parts[2] });
-        if(securityLogs.length > 200) securityLogs.pop();
-        localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
-        renderSecurityUI();
-        showToast(`🛡️ LOGGED EVENT #${parts[0]}`, "green");
+        
+        let logId = parseInt(parts[0]), espTime = parts[1], logMsg = parts[2];
+        if (!securityLogs.some(l => l.id === logId && l.time === espTime)) {
+            securityLogs.unshift({ id: logId, date: dateStr, time: espTime, msg: logMsg });
+            securityLogs.sort((a, b) => b.id - a.id);
+            if (securityLogs.length > 200) securityLogs = securityLogs.slice(0, 200);
+            localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
+            if (document.getElementById('hModal').style.display === 'block') renderSecurityUI();
+            showToast(`🛡️ LOGGED EVENT #${logId}`, "green");
+        }
         return;
     }
 
-    // 2. SUCCESS MESSAGES (The fix)
-    // We use .includes to be safe from hidden characters
-    if (p.includes("PIN_CHANGED")) { 
-        showToast("PIN UPDATED SUCCESSFULLY", "green");
-        console.log("Success: PIN Change acknowledged");
-    } 
-    else if (p.includes("VOICE_LINKED")) { 
-        showToast("VOICE SETUP SUCCESSFULLY", "green"); 
-        console.log("Success: Voice Setup acknowledged");
-    }
+    // 3. HANDLE DATA SYNC (Fixes Auto Function, Timer, and WiFi)
+    if (p.startsWith("DATA|")) {
+        let d = p.split("|");
+        // Format: DATA | RSSI | AUTO_ENABLE | TIMER | STATUS
+        
+        // Update WiFi Signal
+        if (typeof updateWiFi === "function") updateWiFi(d[1]);
 
-    // 3. DOOR STATE
-    if (p === "OPEN" || p === "CLOSED") {
-        lastSensorStatus = p;
-        if(s) {
-            s.innerHTML = "GATE " + p + "ED" + (document.getElementById('pCont') ? document.getElementById('pCont').outerHTML : "");
-            s.style.backgroundColor = (p === "OPEN") ? "#3a1e1e" : "#1e3a1e";
+        // Sync Settings (only if user isn't typing)
+        if (!timerEditing) {
+            document.getElementById('ae').value = d[2]; // Auto Enable (0 or 1)
+            document.getElementById('at').value = d[3]; // Timer value
+            currentWait = d[3];
+            document.getElementById('abtn').style.display = (d[2] == "1") ? "block" : "none";
         }
-        addLog("Detected : Gate " + p);
+
+        // Initial Sensor Status (Fixes "Checking Sensor" hang)
+        if (!isStatusLocked) {
+            let doorStatus = d[4] || ""; 
+            if (doorStatus.includes("OPEN")) {
+                lastSensorStatus = "OPEN";
+                s.innerHTML = "GATE OPENED" + document.getElementById('pCont').outerHTML;
+                s.style.backgroundColor = "#3a1e1e";
+            } else if (doorStatus.includes("CLOSED")) {
+                lastSensorStatus = "CLOSED";
+                s.innerHTML = "GATE CLOSED" + document.getElementById('pCont').outerHTML;
+                s.style.backgroundColor = "#1e3a1e";
+            }
+        }
+
+        // Hide login screens
+        document.getElementById('pg1').style.display = 'none';
+        if (document.getElementById('pg3').style.display !== 'block') {
+            document.getElementById('pg2').style.display = 'block';
+        }
+        return;
     }
 
-    // 4. LOGIN SYNC
-    if (p.startsWith("DATA|") || p === "ONLINE") {
-        document.getElementById('pg1').style.display='none';
-        document.getElementById('pg2').style.display='none';
-        document.getElementById('pg3').style.display='block';
-        document.getElementById('gear').style.visibility='visible';
+    // 4. HANDLE LIVE STATUS UPDATES
+    if (p === "OPEN" || p === "OPENING") {
+        if (lastSensorStatus !== "OPEN") { 
+            showToast("ALERT: Door is Opening!", "error"); 
+            vibrateAlert('opening'); 
+            addLog("Detected : GateOpened"); 
+            startGateReminder(); 
+        }
+        lastSensorStatus = "OPEN";
+        if (!isStatusLocked) { 
+            s.innerHTML = "GATE OPENED" + document.getElementById('pCont').outerHTML; 
+            s.style.backgroundColor = "#3a1e1e"; 
+        }
+    } 
+    else if (p === "CLOSED") {
+        if (lastSensorStatus !== "CLOSED") { 
+            showToast("SUCCESS: Door is Closed", "green"); 
+            vibrateAlert('closed'); 
+            addLog("Detected : GateClosed"); 
+            stopGateReminder(); 
+        }
+        lastSensorStatus = "CLOSED";
+        if (!isStatusLocked) { 
+            s.innerHTML = "GATE CLOSED" + document.getElementById('pCont').outerHTML; 
+            s.style.backgroundColor = "#1e3a1e"; 
+        }
+    }
+
+    // 5. HANDLE SUCCESS REPLAYS (Fixes PIN and Voice feedback)
+    if (p.includes("PIN_CHANGED")) {
+        showToast("PIN UPDATED SUCCESSFULLY", "green");
+        timerEditing = false;
+    } 
+    else if (p.includes("VOICE_LINKED")) {
+        showToast("VOICE SETUP SUCCESSFULLY", "green");
+    }
+    else if (p === "PIN_OK") {
+        localStorage.setItem("samxi_pin", document.getElementById('entryPin').value);
+        document.getElementById('pg2').style.display = 'none';
+        document.getElementById('pg3').style.display = 'block';
+        document.getElementById('gear').style.visibility = 'visible';
+        send("GET_STATE");
     }
 };
             client.connect({ useSSL: true, keepAliveInterval: 10, timeout: 5, onSuccess: () => {
