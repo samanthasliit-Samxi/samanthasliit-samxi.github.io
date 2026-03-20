@@ -482,7 +482,7 @@
 }
 
         function verifyPin() { if(audioCtx.state === 'suspended') audioCtx.resume(); requestWakeLock(); send("VERIFY|" + document.getElementById('entryPin').value); }
-        function changePin() { let np = document.getElementById('newPin').value; if(np.length<4){alert("4 DIGITS!"); return;} 
+        function changePin() { let np = document.getElementById('newPin').value; if(np.length<4){alert("ENTER 4Nos DIGITS!"); return;} 
             showToast("PIN UPDATED SUCCESSFULLY", "green");
             send("SETPIN|"+np); }
         function save() { let timerVal = document.getElementById('at').value, autoVal = document.getElementById('ae').value; currentWait = timerVal; document.getElementById('abtn').style.display = (autoVal=="1") ? "block" : "none"; send("CONFIG|" + timerVal + "|" + autoVal); alert("SAVED!"); }
@@ -498,6 +498,7 @@
         function factoryReset() { if(confirm("Are you sure?")) send('RESET_FACTORY'); }
         function openVoiceModal() { document.getElementById('modal').style.display = 'none'; document.getElementById('voiceModal').style.display = 'block'; }
         function saveVoice() { let k = document.getElementById('sKey').value, s = document.getElementById('sSecret').value, i = document.getElementById('sId').value; if(!k || !s || !i) { showToast("Missing keys!", "error"); return; } send("SINRIC|" + k + "|" + s + "|" + i); }
+        showToast("VOICE KEYS UPDATED SUCCESSFULLY", "green");
         function send(c) { if(client && client.isConnected()){ let m = new Paho.MQTT.Message(c); m.destinationName = "samxi/"+dev+"/cmd"; client.send(m); } }
 
         function updateWiFi(rssi) {
