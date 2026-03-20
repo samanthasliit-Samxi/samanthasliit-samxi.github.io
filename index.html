@@ -359,31 +359,54 @@
                 if (!isCountingDown) freezePanel(false, true);
 
                 // --- 1. SECURITY & VOICE SYNC ---
-                if (topic.includes("/security")) {
-                    let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-                    let parts = p.split('|');
-                    if (parts.length < 3) return;
-                    let logId = parseInt(parts[0]);
-                    let espTime = parts[1];
-                    let logMsg = parts[2];
-                    let dateStr = new Date().toLocaleDateString('en-GB');
+if (topic.includes("/security")) {
+    let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
+    let parts = p.split('|');
+    if (parts.length < 3) return;
 
-                    if (!processedLogIds.includes(logId)) {
-                        processedLogIds.push(logId);
-                        if (processedLogIds.length > 500) processedLogIds.shift();
-                        localStorage.setItem("processed_ids", JSON.stringify(processedLogIds));
-                        securityLogs.unshift({ id: logId, date: dateStr, time: espTime, msg: logMsg });
-                        if (securityLogs.length > 200) securityLogs.pop();
-                        localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
+    let logId = parseInt(parts[0]);
+    let espTime = parts[1];
+    let logMsg = parts[2];
+    let dateStr = new Date().toLocaleDateString('en-GB');
 
-                        if (logMsg.includes("Command")) { addLog(logMsg); }
-                        else { showToast(`🛡️ LOGGED EVENT #${logId}`, "green"); }
+    // --- THE GATEKEEPER (Prevents the 12 duplicates) ---
+    // Check if we have already handled this specific log ID in this session or history
+    if (processedLogIds.includes(logId)) {
+        console.log("Skipping duplicate log: " + logId);
+        return; 
+    }
 
-                        if (document.getElementById('hModal').style.display === 'block') { renderSecurityUI(); openHistory(); }
-                    }
-                    return;
-                }
+    // 1. Mark as processed immediately
+    processedLogIds.push(logId);
+    if (processedLogIds.length > 500) processedLogIds.shift();
+    localStorage.setItem("processed_ids", JSON.stringify(processedLogIds));
 
+    // 2. Save to background Audit (Always do this for the PDF report)
+    securityLogs.unshift({ id: logId, date: dateStr, time: espTime, msg: logMsg });
+    if (securityLogs.length > 200) securityLogs.pop();
+    localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
+
+    // 3. Sync to MAIN ACTIVITY (Only if it's a Command)
+    if (logMsg.includes("Command")) {
+        // Double-check against main history to be 100% sure
+        let mainLogs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
+        let isDuplicateInMain = mainLogs.some(l => l.msg === logMsg && l.date.includes(espTime));
+        
+        if (!isDuplicateInMain) {
+            addLog(logMsg); 
+        }
+    } else {
+        // Only show alert toasts for real security events
+        showToast(`🛡️ LOGGED EVENT #${logId}`, "green");
+    }
+
+    // 4. Refresh UI
+    if (document.getElementById('hModal').style.display === 'block') {
+        renderSecurityUI();
+        openHistory();
+    }
+    return;
+}
                 // --- 2. LIVE DOOR STATUS ---
                 if (p === "OPENING" || p === "OPEN") {
                     if (lastSensorStatus !== "OPEN") { showToast("ALERT: Door is Opening!", "error"); vibrateAlert('opening'); addLog("Detected : GateOpened"); startGateReminder(); }
