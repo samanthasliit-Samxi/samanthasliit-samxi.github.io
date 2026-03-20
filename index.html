@@ -482,7 +482,9 @@
 }
 
         function verifyPin() { if(audioCtx.state === 'suspended') audioCtx.resume(); requestWakeLock(); send("VERIFY|" + document.getElementById('entryPin').value); }
-        function changePin() { let np = document.getElementById('newPin').value; if(np.length<4){alert("4 DIGITS!"); return;} send("SETPIN|"+np); }
+        function changePin() { let np = document.getElementById('newPin').value; if(np.length<4){alert("4 DIGITS!"); return;} 
+            showToast("PIN UPDATED SUCCESSFULLY", "green");
+            send("SETPIN|"+np); }
         function save() { let timerVal = document.getElementById('at').value, autoVal = document.getElementById('ae').value; currentWait = timerVal; document.getElementById('abtn').style.display = (autoVal=="1") ? "block" : "none"; send("CONFIG|" + timerVal + "|" + autoVal); alert("SAVED!"); }
         function openTgModal() { document.getElementById('modal').style.display = 'none'; document.getElementById('tgModal').style.display = 'block'; }
        
