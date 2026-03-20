@@ -175,6 +175,7 @@
     <div id="toast"></div>
 
     <script>
+        let processedLogIds = JSON.parse(localStorage.getItem("processed_ids") || "[]");
         let wakeLock = null;
         let client, dev, currentWait = 10, countdownTimer, lastMsgTime = Date.now();
         let timerEditing = false, isCountingDown = false, isStatusLocked = false;
@@ -244,7 +245,7 @@ function renderSecurityUI() {
     const display = document.getElementById("securityLogDisplay");
     let localAuthLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
     
-    // FILTER: Remove authorized commands from the display list
+    // IMPORTANT: Filter out anything that is an authorized command
     const filteredLogs = localAuthLogs.filter(l => !l.msg.includes("Command"));
 
     if (filteredLogs.length === 0) {
@@ -254,17 +255,11 @@ function renderSecurityUI() {
 
     filteredLogs.sort((a, b) => b.id - a.id);
     display.innerHTML = filteredLogs.map((l, index) => {
-        let textColor = "#ff4d4d";
-        if(l.msg.includes("POWER")) textColor = "#f1c40f";
-        if(l.msg.includes("WiFi")) textColor = "#3498db";
-        let sequenceNum = index + 1;
-        return `<div style="padding:10px; border-bottom:1px solid #222; font-family:sans-serif; color:${textColor}; text-align:left; display:flex; gap:10px;">
-            <span style="color:#666; font-weight:bold; min-width:30px;">${sequenceNum}.</span>
-            <div>
-                <div style="font-size:0.75rem; opacity:0.8; font-weight:bold;">${l.date || ''} | ${l.time}</div>
-                <div style="font-weight:bold; font-size:0.9rem;">${l.msg}</div>
-            </div>
-        </div>`;
+        let textColor = l.msg.includes("POWER") ? "#f1c40f" : l.msg.includes("WiFi") ? "#3498db" : "#ff4d4d";
+        return `<div style="padding:10px; border-bottom:1px solid #222; text-align:left;">
+                <span style="color:#666; font-size:0.7rem;">${l.date} | ${l.time}</span><br>
+                <b style="color:${textColor}">${l.msg}</b>
+            </div>`;
     }).join('');
 }
         function openHistory() {
@@ -350,47 +345,99 @@ function renderSecurityUI() {
                     freezePanel(true, true);
                 }
             };
-            client.onMessageArrived = (m) => {
-                let p = m.payloadString, topic = m.destinationName, s = document.getElementById('stat');
-                const nowTime = new Date();
-                document.getElementById('lastUpdate').innerText = "Last update: " + nowTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                lastMsgTime = Date.now();
-                document.getElementById('led').className="led green";
-                if(!isCountingDown) freezePanel(false, true);
-               
-if (topic.includes("/security")) {
-    let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-    const dateStr = new Date().toLocaleDateString('en-GB');
-    let parts = p.split('|');
-    if (parts.length < 3) return;
+client.onMessageArrived = (m) => {
+    let p = m.payloadString.trim();
+    let topic = m.destinationName;
+    let s = document.getElementById('stat');
+    const nowTime = new Date();
+    
+    // UI Update
+    document.getElementById('lastUpdate').innerText = "Last update: " + nowTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    lastMsgTime = Date.now();
+    document.getElementById('led').className = "led green";
+    if (!isCountingDown) freezePanel(false, true);
 
-    let logId = parseInt(parts[0]), espTime = parts[1], logMsg = parts[2];
+    // --- 1. SECURITY & VOICE SYNC LOGIC ---
+    if (topic.includes("/security")) {
+        let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
+        let parts = p.split('|');
+        if (parts.length < 3) return;
 
-    // Duplicate check using logId and espTime
-    if (!securityLogs.some(l => l.id === logId && l.time === espTime)) {
-        
-        // 1. Always save to local_security_records for duplicate prevention/reports
-        securityLogs.unshift({ id: logId, date: dateStr, time: espTime, msg: logMsg });
-        securityLogs.sort((a, b) => b.id - a.id);
-        if(securityLogs.length > 200) securityLogs = securityLogs.slice(0, 200);
-        localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
+        let logId = parseInt(parts[0]);
+        let espTime = parts[1];
+        let logMsg = parts[2]; // This is where "Voice Command: CLOSE DOOR" comes from
+        let dateStr = new Date().toLocaleDateString('en-GB');
 
-        // 2. If it's a Voice/App command, sync it to Activity History
-        if (logMsg.includes("Command")) {
-            addLog(logMsg); // Pushes to the green "ACTIVITY HISTORY" list
+        // DUPLICATE CHECK: Only process if we haven't seen this logId before
+        if (!processedLogIds.includes(logId)) {
+            processedLogIds.push(logId);
+            if (processedLogIds.length > 500) processedLogIds.shift();
+            localStorage.setItem("processed_ids", JSON.stringify(processedLogIds));
+
+            // Save to background record
+            securityLogs.unshift({ id: logId, date: dateStr, time: espTime, msg: logMsg });
+            if (securityLogs.length > 200) securityLogs.pop();
+            localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
+
+            // SYNC TO MAIN ACTIVITY: Only move Voice/App commands to the top list
+            if (logMsg.includes("Command")) {
+                addLog(logMsg); 
+            } else {
+                // Show toast ONLY for real security alerts (Power/WiFi/Unexpected)
+                showToast(`🛡️ LOGGED EVENT #${logId}`, "green");
+            }
+
+            // Refresh UI if the modal is open
+            if (document.getElementById('hModal').style.display === 'block') {
+                renderSecurityUI(); // This filters out 'Command'
+                openHistory();
+            }
         }
+        return;
+    }
 
-        // 3. Refresh UIs
-        if(document.getElementById('hModal').style.display === 'block') {
-            renderSecurityUI(); // Will show only real security events due to filter
-            openHistory();      // Will show the new command in history
+    // --- 2. LIVE STATUS UPDATES ---
+    if (p === "OPENING" || p === "OPEN") {
+        if (lastSensorStatus !== "OPEN") { 
+            showToast("ALERT: Door is Opening!", "error"); 
+            vibrateAlert('opening'); 
+            addLog("Detected : GateOpened"); 
+            startGateReminder(); 
         }
-        
-        // Only show toast for actual security alerts, not commands
-        if (!logMsg.includes("Command")) {
-            showToast(`🛡️ LOGGED EVENT #${logId}`, "green");
+        lastSensorStatus = "OPEN";
+        if (!isStatusLocked) { s.innerHTML = "GATE OPENED" + document.getElementById('pCont').outerHTML; s.style.backgroundColor = "#3a1e1e"; hideProgress(); }
+    } else if (p === "CLOSED") {
+        if (lastSensorStatus !== "CLOSED") { 
+            showToast("SUCCESS: Door is Closed", "green"); 
+            vibrateAlert('closed'); 
+            addLog("Detected : GateClosed"); 
+            stopGateReminder(); 
+        }
+        lastSensorStatus = "CLOSED";
+        if (!isStatusLocked) { s.innerHTML = "GATE CLOSED" + document.getElementById('pCont').outerHTML; s.style.backgroundColor = "#1e3a1e"; hideProgress(); }
+    }
+    
+    // --- 3. APP STATE & REPLIES ---
+    else if (p === "PIN_OK") {
+        localStorage.setItem("samxi_pin", document.getElementById('entryPin').value);
+        document.getElementById('pg2').style.display = 'none'; document.getElementById('pg3').style.display = 'block';
+        document.getElementById('gear').style.visibility = 'visible'; send("GET_STATE");
+    } 
+    else if (p === "ONLINE" || p.startsWith("DATA|")) {
+        document.getElementById('pg1').style.display = 'none';
+        if (document.getElementById('pg3').style.display !== 'block') document.getElementById('pg2').style.display = 'block';
+        if (p.startsWith("DATA|")) {
+            let d = p.split("|");
+            updateWiFi(d[1]);
+            if (!timerEditing) { 
+                document.getElementById('at').value = d[3]; 
+                currentWait = d[3]; 
+                document.getElementById('ae').value = d[2]; 
+                document.getElementById('abtn').style.display = (d[2] == "1") ? "block" : "none"; 
+            }
         }
     }
+};
     return;
 }
                 if (p === "OPENING" || p === "OPEN") {
