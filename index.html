@@ -240,29 +240,33 @@
             localStorage.setItem("samxi_logs", JSON.stringify(logs));
         }
 
-        function renderSecurityUI() {
-            const display = document.getElementById("securityLogDisplay");
-            let localAuthLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-            if (localAuthLogs.length === 0) {
-                display.innerHTML = "<p style='color:#666; text-align:center;'>No security events recorded.</p>";
-                return;
-            }
-            localAuthLogs.sort((a, b) => b.id - a.id);
-            display.innerHTML = localAuthLogs.map((l, index) => {
-                let textColor = "#ff4d4d";
-                if(l.msg.includes("POWER")) textColor = "#f1c40f";
-                if(l.msg.includes("WiFi")) textColor = "#3498db";
-                let sequenceNum = index + 1;
-                return `<div style="padding:10px; border-bottom:1px solid #222; font-family:sans-serif; color:${textColor}; text-align:left; display:flex; gap:10px;">
-                    <span style="color:#666; font-weight:bold; min-width:30px;">${sequenceNum}.</span>
-                    <div>
-                        <div style="font-size:0.75rem; opacity:0.8; font-weight:bold;">${l.date || ''} | ${l.time}</div>
-                        <div style="font-weight:bold; font-size:0.9rem;">${l.msg}</div>
-                    </div>
-                </div>`;
-            }).join('');
-        }
+function renderSecurityUI() {
+    const display = document.getElementById("securityLogDisplay");
+    let localAuthLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
+    
+    // FILTER: Remove authorized commands from the display list
+    const filteredLogs = localAuthLogs.filter(l => !l.msg.includes("Command"));
 
+    if (filteredLogs.length === 0) {
+        display.innerHTML = "<p style='color:#666; text-align:center;'>No security events recorded.</p>";
+        return;
+    }
+
+    filteredLogs.sort((a, b) => b.id - a.id);
+    display.innerHTML = filteredLogs.map((l, index) => {
+        let textColor = "#ff4d4d";
+        if(l.msg.includes("POWER")) textColor = "#f1c40f";
+        if(l.msg.includes("WiFi")) textColor = "#3498db";
+        let sequenceNum = index + 1;
+        return `<div style="padding:10px; border-bottom:1px solid #222; font-family:sans-serif; color:${textColor}; text-align:left; display:flex; gap:10px;">
+            <span style="color:#666; font-weight:bold; min-width:30px;">${sequenceNum}.</span>
+            <div>
+                <div style="font-size:0.75rem; opacity:0.8; font-weight:bold;">${l.date || ''} | ${l.time}</div>
+                <div style="font-weight:bold; font-size:0.9rem;">${l.msg}</div>
+            </div>
+        </div>`;
+    }).join('');
+}
         function openHistory() {
             const list = document.getElementById('logList');
             let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
@@ -354,7 +358,7 @@
                 document.getElementById('led').className="led green";
                 if(!isCountingDown) freezePanel(false, true);
                
-     if (topic.includes("/security")) {
+if (topic.includes("/security")) {
     let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
     const dateStr = new Date().toLocaleDateString('en-GB');
     let parts = p.split('|');
@@ -362,28 +366,30 @@
 
     let logId = parseInt(parts[0]), espTime = parts[1], logMsg = parts[2];
 
-    // Check for duplicates to prevent double-logging
+    // Duplicate check using logId and espTime
     if (!securityLogs.some(l => l.id === logId && l.time === espTime)) {
         
-        // 1. SAVE TO FORENSIC AUDIT (For PDF Reports)
+        // 1. Always save to local_security_records for duplicate prevention/reports
         securityLogs.unshift({ id: logId, date: dateStr, time: espTime, msg: logMsg });
         securityLogs.sort((a, b) => b.id - a.id);
         if(securityLogs.length > 200) securityLogs = securityLogs.slice(0, 200);
         localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
 
-        // 2. SYNC TO MAIN ACTIVITY HISTORY (The New Update)
-        // If the message contains "Command", we also add it to the green Activity List
+        // 2. If it's a Voice/App command, sync it to Activity History
         if (logMsg.includes("Command")) {
-            addLog(logMsg); 
+            addLog(logMsg); // Pushes to the green "ACTIVITY HISTORY" list
         }
 
-        // 3. RE-RENDER UI IF MODAL IS OPEN
+        // 3. Refresh UIs
         if(document.getElementById('hModal').style.display === 'block') {
-            renderSecurityUI(); // Refresh the Un-Authorized list
-            openHistory();      // Refresh the Activity History list
+            renderSecurityUI(); // Will show only real security events due to filter
+            openHistory();      // Will show the new command in history
         }
         
-        showToast(`🛡️ LOGGED EVENT #${logId}`, "green");
+        // Only show toast for actual security alerts, not commands
+        if (!logMsg.includes("Command")) {
+            showToast(`🛡️ LOGGED EVENT #${logId}`, "green");
+        }
     }
     return;
 }
