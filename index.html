@@ -497,8 +497,8 @@
 
         function factoryReset() { if(confirm("Are you sure?")) send('RESET_FACTORY'); }
         function openVoiceModal() { document.getElementById('modal').style.display = 'none'; document.getElementById('voiceModal').style.display = 'block'; }
-        function saveVoice() { let k = document.getElementById('sKey').value, s = document.getElementById('sSecret').value, i = document.getElementById('sId').value; if(!k || !s || !i) { showToast("Missing keys!", "error"); return; } send("SINRIC|" + k + "|" + s + "|" + i); }
-        showToast("VOICE KEYS UPDATED SUCCESSFULLY", "green");
+        function saveVoice() { let k = document.getElementById('sKey').value, s = document.getElementById('sSecret').value, i = document.getElementById('sId').value;showToast("VOICE KEYS UPDATED SUCCESSFULLY", "green"); if(!k || !s || !i) { showToast("Missing keys!", "error"); return; } send("SINRIC|" + k + "|" + s + "|" + i); }
+        
         function send(c) { if(client && client.isConnected()){ let m = new Paho.MQTT.Message(c); m.destinationName = "samxi/"+dev+"/cmd"; client.send(m); } }
 
         function updateWiFi(rssi) {
