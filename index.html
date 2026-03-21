@@ -501,16 +501,71 @@ if (topic.includes("/security")) {
             showToast("CSV DOWNLOADED!", "green");
         }
 
-        function downloadNetworkReport() {
-            const devId = localStorage.getItem("samxi_id") || "N/A";
-            const allLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-            const netLogs = allLogs.filter(l => l.msg.includes("POWER") || l.msg.includes("WiFi"));
-            if (netLogs.length === 0) { showToast("No events found!", "error"); return; }
-            const element = document.createElement('div');
-            let rows = netLogs.map((l, i) => `<tr><td>${i+1}</td><td>${l.date}</td><td>${l.time}</td><td>${l.msg}</td></tr>`).join('');
-            element.innerHTML = `<h1>SAMXI Power/WiFi Log</h1><table border="1">${rows}</table>`;
-            html2pdf().set({ filename: `SAMXI_Network_${devId}.pdf` }).from(element).save();
-        }
+          function downloadNetworkReport() {
+    const devId = localStorage.getItem("samxi_id") || "N/A";
+    const allLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
+   
+    // Filter ONLY for Power and WiFi events
+    const netLogs = allLogs.filter(l =>
+        l.msg.includes("POWER") || l.msg.includes("WiFi")
+    );
+
+    if (netLogs.length === 0) {
+        showToast("No Power/WiFi events found!", "error");
+        return;
+    }
+
+    // Sort Newest First
+    netLogs.sort((a, b) => b.id - a.id);
+
+    const element = document.createElement('div');
+    element.style.padding = "20px";
+    element.style.color = "#333";
+    element.style.fontFamily = "sans-serif";
+
+    let tableRows = netLogs.map((l, i) => `
+        <tr>
+            <td style="border:1px solid #ddd; padding:8px;">${i + 1}</td>
+            <td style="border:1px solid #ddd; padding:8px;">${l.date || ''}</td>
+            <td style="border:1px solid #ddd; padding:8px;">${l.time}</td>
+            <td style="border:1px solid #ddd; padding:8px; font-weight:bold;">${l.msg}</td>
+        </tr>
+    `).join('');
+
+    element.innerHTML = `
+        <div style="text-align:center; border-bottom:2px solid #f1c40f; padding-bottom:10px; margin-bottom:20px;">
+            <h1 style="color:#2ecc71; margin:0;">SAMXI SMART PRO</h1>
+            <p style="margin:5px 0; font-weight:bold;">Power & Network Stability Report</p>
+            <p style="font-size:12px;">Device ID: ${devId} | Exported: ${new Date().toLocaleString()}</p>
+        </div>
+        <p style="font-size:13px;">This report lists all detected power failures and internet connectivity interruptions.</p>
+        <table style="width:100%; border-collapse:collapse; margin-top:10px;">
+            <thead>
+                <tr style="background:#f9f9f9;">
+                    <th style="border:1px solid #ddd; padding:8px; text-align:left;">#</th>
+                    <th style="border:1px solid #ddd; padding:8px; text-align:left;">Date</th>
+                    <th style="border:1px solid #ddd; padding:8px; text-align:left;">Time</th>
+                    <th style="border:1px solid #ddd; padding:8px; text-align:left;">Event Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${tableRows}
+            </tbody>
+        </table>
+    `;
+
+    const opt = {
+        margin:       10,
+        filename:     `SAMXI_Power_WiFi_Log_${devId}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    showToast("Preparing Diagnostic PDF...", "green");
+    html2pdf().set(opt).from(element).save();
+}
+
 
         window.onload = function() {
             let savedID = localStorage.getItem("samxi_id"); if(savedID) document.getElementById('id').value = savedID;
