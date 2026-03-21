@@ -488,18 +488,38 @@ if (topic.includes("/security")) {
         function hideProgress() { document.getElementById('pCont').style.display = 'none'; }
         function freezePanel(s, f = false) { document.querySelectorAll('#pg3 .btn').forEach(btn => { if (f || btn.id !== 'abtn') s ? btn.classList.add('timer-lock') : btn.classList.remove('timer-lock'); }); }
 
-        function downloadHistoryCSV() {
-            let regLogs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
-            let secLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-            if (regLogs.length === 0 && secLogs.length === 0) { showToast("No logs!", "error"); return; }
-            let csv = "EVENT TYPE,DATE,TIME,DESCRIPTION\n";
-            secLogs.forEach(l => csv += `SECURITY,${l.date || ''},${l.time || ''},${(l.msg || '').replace(/,/g, " ")}\n`);
-            regLogs.forEach(l => csv += `ACTIVITY,${l.date || ''}, ,${(l.msg || '').replace(/,/g, " ")}\n`);
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = `SAMXI_HISTORY_${Date.now()}.csv`; a.click();
-            showToast("CSV DOWNLOADED!", "green");
-        }
+function downloadHistoryCSV() {
+    let regLogs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
+    let secLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
+   
+    if (regLogs.length === 0 && secLogs.length === 0) {
+        showToast("No logs found to download!", "error");
+        return;
+    }
+   
+    let csv = "EVENT TYPE,DATE,TIME,DESCRIPTION\n";
+   
+    // Process Security Logs (Un-Authorized)
+    secLogs.forEach(l => {
+        // Security logs use parts[1] for time and parts[2] for msg
+        csv += `SECURITY,${l.date || ''},${l.time || ''},${(l.msg || '').replace(/,/g, " ")}\n`;
+    });
+   
+    // Process Activity Logs (General History)
+    regLogs.forEach(l => {
+        // Activity logs store date/time as one string usually
+        csv += `ACTIVITY,${l.date || ''}, ,${(l.msg || '').replace(/,/g, " ")}\n`;
+    });
+   
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `SAMXI_MASTER_HISTORY_${Date.now()}.csv`;
+    a.click();
+    showToast("MASTER HISTORY DOWNLOADED!", "green");
+}
+
 
           function downloadNetworkReport() {
     const devId = localStorage.getItem("samxi_id") || "N/A";
