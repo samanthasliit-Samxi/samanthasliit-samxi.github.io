@@ -268,15 +268,28 @@
             document.getElementById('hModal').style.display = 'block';
         }
 
-        function clearHistory() {
-            if(!confirm("Delete ALL logs?")) return;
-            localStorage.setItem("samxi_logs", "[]");
-            localStorage.setItem("local_security_records", "[]");
-            localStorage.setItem("processed_ids", "[]");
-            processedLogIds = [];
-            openHistory();
-            showToast("All History Cleared", "green");
-        }
+function clearHistory() {
+    if(!confirm("⚠️ This will permanently delete ALL activity and security records. Are you sure?")) return;
+
+    // 1. Wipe the Phone's Local Storage
+    localStorage.setItem("samxi_logs", "[]");
+    localStorage.setItem("local_security_records", "[]");
+    localStorage.setItem("processed_ids", "[]");
+    
+    // 2. Reset the Live App variables
+    processedLogIds = [];
+    
+    // 3. TELL THE HARDWARE TO WIPE THE MQTT SLOTS
+    // This stops the data from "reappearing" on relogin
+    send("CLEAR_SECURITY_LOGS"); 
+
+    // 4. Update UI
+    if(document.getElementById('hModal').style.display === 'block') {
+        openHistory(); 
+    }
+    
+    showToast("System Logs Fully cleared", "green");
+}
 
         function cmd(type, logMsg) {
             if(isCountingDown && type !== 'auto') return;
