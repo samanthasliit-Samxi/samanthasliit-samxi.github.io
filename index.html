@@ -145,7 +145,7 @@
     <div id="voiceModal">
         <div class="modal-content">
             <h2 style="color:#9b59b6; margin-top:0;"> VOICE SETUP</h2>
-            <p style="color:#aaa; font-size:0.85rem; margin-top:-10px; margin-bottom:15px;">Link your Assistant or Siri using Sinric Pro keys.</p>
+            <p style="color:#aaa; font-size:0.85rem; margin-top:-10px; margin-bottom:15px;">Link your Google Assistant or Siri using your Sinric Pro keys.</p>
             <input type="text" id="sKey" placeholder="App Key">
             <input type="text" id="sSecret" placeholder="App Secret">
             <input type="text" id="sId" placeholder="Device ID">
@@ -163,7 +163,7 @@
             <div id="securityLogDisplay" style="margin-top:10px; max-height:250px; overflow-y:auto; font-size: 0.85rem; background:#000; padding:5px; border-radius:8px; border:1px solid #333;"></div>
             <button onclick="downloadPDFReport()" style="background:#2ecc71; color:#141414; margin-top: 20px;">📄 SECURITY AUDIT REPORT</button>
             <button onclick="downloadNetworkReport()" style="background:#f1c40f; color:#141414;">📊 POWER & WIFI REPORT</button>           
-            <button onclick="downloadHistoryCSV()" style="background:#3498db; color:white;"> DOWNLOAD HISTORY (CSV)</button>
+            <button onclick="downloadHistoryCSV()" style="background:#3498db; color:white;"> DOWNLOAD MASTER HISTORY (CSV)</button>
             <button onclick="clearHistory()" style="background:#444; color:white; margin-top: 20px;">CLEAR ALL LOGS</button>
             <button onclick="document.getElementById('hModal').style.display='none'" class="exit-link">EXIT</button>
         </div>
@@ -272,6 +272,8 @@
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#e74c3c',
+                cancelButtonColor: '#444',
+                confirmButtonText: 'YES, WIPE EVERYTHING',
                 background: '#1a1a1a', color: '#fff'
             }).then((result) => {
                 if (result.isConfirmed) {
@@ -341,7 +343,7 @@
         function connect() {
             dev = document.getElementById('id').value.trim();
             if(!dev) { 
-                Swal.fire({ title: 'ID REQUIRED', text: 'Please enter Product ID', icon: 'error', background: '#1a1a1a', color: '#fff' }); 
+                Swal.fire({ title: 'PRODUCT ID REQUIRED', text: 'Please enter your Product ID to continue.', icon: 'warning', background: '#1a1a1a', color: '#fff' }); 
                 return; 
             }
             localStorage.setItem("samxi_id", dev);
@@ -386,7 +388,7 @@
                         localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
 
                         if (logMsg.includes("Command")) { addLog(logMsg); } 
-                        else { showToast(`LOGGED EVENT #${logId}`, "green"); }
+                        else { showToast(`🛡️ LOGGED EVENT #${logId}`, "green"); }
 
                         if (document.getElementById('hModal').style.display === 'block') {
                             renderSecurityUI();
@@ -417,14 +419,15 @@
                     document.getElementById('gear').style.visibility='visible'; send("GET_STATE");
                 }
                 else if (p === "WRONG_PIN") { 
-                    Swal.fire({ title: 'ACCESS DENIED', text: 'Wrong PIN entered', icon: 'error', background: '#1a1a1a', color: '#fff' }); 
+                    Swal.fire({ title: 'ACCESS DENIED', text: 'The PIN you entered is incorrect.', icon: 'error', background: '#1a1a1a', color: '#fff' }); 
                 }
                 else if (p.includes("PIN_CHANGED")) {
                     localStorage.setItem("samxi_pin", document.getElementById('newPin').value);
                     document.getElementById('entryPin').value = document.getElementById('newPin').value;
-                    showToast("PIN UPDATED SUCCESSFULLY", "green"); timerEditing = false;
+                    Swal.fire({ title: 'SECURITY UPDATED', text: 'New PIN active!', icon: 'success', background: '#1a1a1a', color: '#fff' });
+                    timerEditing = false;
                 }
-                else if (p.includes("VOICE_LINKED")) { showToast("VOICE SETUP SUCCESSFULLY", "green"); }
+                else if (p.includes("VOICE_LINKED")) { Swal.fire({ title: 'CLOUD LINKED', text: 'Voice commands enabled.', icon: 'success', background: '#1a1a1a', color: '#fff' }); }
                 else if (p === "ONLINE" || p.startsWith("DATA|")) {
                     document.getElementById('pg1').style.display='none';
                     if (document.getElementById('pg3').style.display !== 'block') document.getElementById('pg2').style.display = 'block';
@@ -453,6 +456,7 @@
             }, onFailure: (e) => { setTimeout(connect, 5000); } });
         }
 
+        // --- RESTORED PREVIOUS PDF LOGIC ---
         function downloadPDFReport() {
             const devId = localStorage.getItem("samxi_id") || "N/A";
             const secLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
@@ -460,13 +464,69 @@
             secLogs.sort((a, b) => b.id - a.id);
             const element = document.createElement('div');
             element.style.padding = "20px"; element.style.color = "#333"; element.style.fontFamily = "sans-serif";
+
             let tableRows = secLogs.map((l, i) => `<tr><td style="border:1px solid #ddd; padding:8px;">${i + 1}</td><td style="border:1px solid #ddd; padding:8px;">${l.date || ''}</td><td style="border:1px solid #ddd; padding:8px;">${l.time}</td><td style="border:1px solid #ddd; padding:8px;">${l.msg}</td></tr>`).join('');
-            element.innerHTML = `<div style="text-align:center; border-bottom:2px solid #2ecc71; padding-bottom:10px; margin-bottom:20px;"><h1 style="color:#2ecc71; margin:0;">SAMXI SMART PRO</h1><p>Security Audit Report</p><p style="font-size:12px;">ID: ${devId} | ${new Date().toLocaleString()}</p></div><table style="width:100%; border-collapse:collapse;"><thead><tr style="background:#f4f4f4;"><th style="border:1px solid #ddd; padding:8px;">#</th><th style="border:1px solid #ddd; padding:8px;">Date</th><th style="border:1px solid #ddd; padding:8px;">Time</th><th style="border:1px solid #ddd; padding:8px;">Event</th></tr></thead><tbody>${tableRows}</tbody></table>`;
-            const opt = { margin: 10, filename: `SAMXI_Security_${devId}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
-            showToast("Generating PDF...", "green");
+
+            element.innerHTML = `
+                <div style="text-align:center; border-bottom:2px solid #2ecc71; padding-bottom:10px; margin-bottom:20px;">
+                    <h1 style="color:#2ecc71; margin:0;">SAMXI SMART PRO</h1>
+                    <p style="margin:5px 0;">Security Audit Report</p>
+                    <p style="font-size:12px;">Device ID: ${devId} | Exported: ${new Date().toLocaleString()}</p>
+                </div>
+                <h3 style="color:#d35400;">DETAILED SECURITY LOGS</h3>
+                <table style="width:100%; border-collapse:collapse;">
+                    <thead><tr style="background:#f4f4f4;"><th style="border:1px solid #ddd; padding:8px; text-align:left;">#</th><th style="border:1px solid #ddd; padding:8px; text-align:left;">Date</th><th style="border:1px solid #ddd; padding:8px; text-align:left;">Time</th><th style="border:1px solid #ddd; padding:8px; text-align:left;">Event Description</th></tr></thead>
+                    <tbody>${tableRows}</tbody>
+                </table>
+                <div style="margin-top:30px; font-size:10px; color:#888; text-align:center;">This is an official hardware-generated security record from the Samxi Smart Door System.</div>`;
+
+            const opt = { margin: 10, filename: `SAMXI_Audit_${devId}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+            showToast("Generating PDF File...", "green");
             html2pdf().set(opt).from(element).save();
         }
 
+        function downloadNetworkReport() {
+            const devId = localStorage.getItem("samxi_id") || "N/A";
+            const allLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
+            const netLogs = allLogs.filter(l => l.msg.includes("POWER") || l.msg.includes("WiFi"));
+            if (netLogs.length === 0) { showToast("No Power/WiFi events found!", "error"); return; }
+            netLogs.sort((a, b) => b.id - a.id);
+            const element = document.createElement('div');
+            element.style.padding = "20px"; element.style.color = "#333"; element.style.fontFamily = "sans-serif";
+
+            let tableRows = netLogs.map((l, i) => `<tr><td style="border:1px solid #ddd; padding:8px;">${i + 1}</td><td style="border:1px solid #ddd; padding:8px;">${l.date || ''}</td><td style="border:1px solid #ddd; padding:8px;">${l.time}</td><td style="border:1px solid #ddd; padding:8px; font-weight:bold;">${l.msg}</td></tr>`).join('');
+
+            element.innerHTML = `
+                <div style="text-align:center; border-bottom:2px solid #f1c40f; padding-bottom:10px; margin-bottom:20px;">
+                    <h1 style="color:#2ecc71; margin:0;">SAMXI SMART PRO</h1>
+                    <p style="margin:5px 0; font-weight:bold;">Power & Network Stability Report</p>
+                    <p style="font-size:12px;">Device ID: ${devId} | Exported: ${new Date().toLocaleString()}</p>
+                </div>
+                <p style="font-size:13px;">This report lists all detected power failures and internet connectivity interruptions.</p>
+                <table style="width:100%; border-collapse:collapse; margin-top:10px;">
+                    <thead><tr style="background:#f9f9f9;"><th style="border:1px solid #ddd; padding:8px; text-align:left;">#</th><th style="border:1px solid #ddd; padding:8px; text-align:left;">Date</th><th style="border:1px solid #ddd; padding:8px; text-align:left;">Time</th><th style="border:1px solid #ddd; padding:8px; text-align:left;">Event Details</th></tr></thead>
+                    <tbody>${tableRows}</tbody>
+                </table>`;
+
+            const opt = { margin: 10, filename: `SAMXI_Power_WiFi_Log_${devId}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+            showToast("Preparing Diagnostic PDF...", "green");
+            html2pdf().set(opt).from(element).save();
+        }
+
+        function downloadHistoryCSV() {
+            let regLogs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
+            let secLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
+            if (regLogs.length === 0 && secLogs.length === 0) { showToast("No logs found!", "error"); return; }
+            let csv = "EVENT TYPE,DATE,TIME,DESCRIPTION\n";
+            secLogs.forEach(l => { csv += `SECURITY,${l.date || ''},${l.time || ''},${(l.msg || '').replace(/,/g, " ")}\n`; });
+            regLogs.forEach(l => { csv += `ACTIVITY,${l.date || ''}, ,${(l.msg || '').replace(/,/g, " ")}\n`; });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = `SAMXI_MASTER_HISTORY.csv`; a.click();
+            showToast("MASTER HISTORY DOWNLOADED!", "green");
+        }
+
+        // --- AUTH & MISC ---
         function verifyPin() { if(audioCtx.state === 'suspended') audioCtx.resume(); requestWakeLock(); send("VERIFY|" + document.getElementById('entryPin').value); }
         
         function changePin() { 
@@ -480,11 +540,10 @@
             currentWait = tv; 
             document.getElementById('abtn').style.display = (av == "1") ? "block" : "none"; 
             send("CONFIG|" + tv + "|" + av); 
-            Swal.fire({ title: 'SAVED', text: 'Door settings updated', icon: 'success', timer: 2000, showConfirmButton: false, background: '#1a1a1a', color: '#fff' });
+            Swal.fire({ title: 'SAVED', text: 'Door Settings Updated Successfully!', icon: 'success', timer: 2000, showConfirmButton: false, background: '#1a1a1a', color: '#fff' });
         }
 
         function openTgModal() { document.getElementById('modal').style.display = 'none'; document.getElementById('tgModal').style.display = 'block'; }
-        
         function syncTelegram() { 
             let id = document.getElementById('tgChatId').value.trim(); 
             if(id.length < 5) { showToast("Enter valid ID", "error"); return; } 
@@ -495,7 +554,7 @@
         function factoryReset() { 
             Swal.fire({
                 title: 'FACTORY RESET?',
-                text: "All PINs and WiFi data will be wiped!",
+                text: "All data will be wiped permanently!",
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#e74c3c',
@@ -519,34 +578,6 @@
         function showProgress(d) { const bar = document.getElementById('pBar'); document.getElementById('pCont').style.display = 'block'; bar.style.width = '0%'; setTimeout(() => { bar.style.transition = `width ${d}s linear`; bar.style.width = '100%'; }, 50); }
         function hideProgress() { document.getElementById('pCont').style.display = 'none'; }
         function freezePanel(s, f = false) { document.querySelectorAll('#pg3 .btn').forEach(btn => { if (f || btn.id !== 'abtn') s ? btn.classList.add('timer-lock') : btn.classList.remove('timer-lock'); }); }
-
-        function downloadHistoryCSV() {
-            let regLogs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
-            let secLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-            if (!regLogs.length && !secLogs.length) { showToast("No logs found!", "error"); return; }
-            let csv = "TYPE,DATE,TIME,DESCRIPTION\n";
-            secLogs.forEach(l => csv += `SECURITY,${l.date || ''},${l.time || ''},${(l.msg || '').replace(/,/g, " ")}\n`);
-            regLogs.forEach(l => csv += `ACTIVITY,${l.date || ''}, ,${(l.msg || '').replace(/,/g, " ")}\n`);
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = `SAMXI_MASTER_HISTORY.csv`; a.click();
-            showToast("DOWNLOADED!", "green");
-        }
-
-        function downloadNetworkReport() {
-            const devId = localStorage.getItem("samxi_id") || "N/A";
-            const allLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-            const netLogs = allLogs.filter(l => l.msg.includes("POWER") || l.msg.includes("WiFi"));
-            if (!netLogs.length) { showToast("No network logs!", "error"); return; }
-            netLogs.sort((a, b) => b.id - a.id);
-            const element = document.createElement('div');
-            element.style.padding = "20px"; element.style.color = "#333";
-            let tableRows = netLogs.map((l, i) => `<tr><td>${i + 1}</td><td>${l.date || ''}</td><td>${l.time}</td><td>${l.msg}</td></tr>`).join('');
-            element.innerHTML = `<h1 style="color:#2ecc71;">SAMXI DIAGNOSTICS</h1><p>Power & Network Report</p><table>${tableRows}</table>`;
-            const opt = { margin: 10, filename: `SAMXI_Diagnostic_${devId}.pdf`, jsPDF: { unit: 'mm', format: 'a4' } };
-            showToast("Preparing PDF...", "green");
-            html2pdf().set(opt).from(element).save();
-        }
 
         window.onload = function() {
             let savedID = localStorage.getItem("samxi_id"); if(savedID) document.getElementById('id').value = savedID;
