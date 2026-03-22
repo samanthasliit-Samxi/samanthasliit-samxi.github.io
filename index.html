@@ -74,6 +74,7 @@
             th, td { border: 1px solid #ddd; padding: 8px; font-size: 12px;}
         }
     </style>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
     <div id="printArea" style="display:none;"></div>
@@ -431,13 +432,18 @@ if (topic.includes("/security")) {
                     document.getElementById('pg2').style.display='none'; document.getElementById('pg3').style.display='block';
                     document.getElementById('gear').style.visibility='visible'; send("GET_STATE");
                 } 
-                else if (p === "WRONG_PIN") { alert("Wrong PIN!"); }
-                else if (p.includes("PIN_CHANGED")) { 
-                    localStorage.setItem("samxi_pin", document.getElementById('newPin').value);
-                    document.getElementById('entryPin').value = document.getElementById('newPin').value;
-                    showToast("PIN UPDATED SUCCESSFULLY", "green"); timerEditing = false; 
-                }
-                else if (p.includes("VOICE_LINKED")) { showToast("VOICE SETUP SUCCESSFULLY", "green"); }
+                else if (p === "WRONG_PIN") { 
+    Swal.fire({ title: 'ACCESS DENIED', text: 'The PIN you entered is incorrect.', icon: 'error', background: '#1a1a1a', color: '#fff', confirmButtonColor: '#e74c3c' }); 
+}
+else if (p.includes("PIN_CHANGED")) { 
+    localStorage.setItem("samxi_pin", document.getElementById('newPin').value);
+    document.getElementById('entryPin').value = document.getElementById('newPin').value;
+    timerEditing = false;
+    Swal.fire({ title: 'SECURITY UPDATED', text: 'Your new 4-digit PIN is now active!', icon: 'success', background: '#1a1a1a', color: '#fff', confirmButtonColor: '#f1c40f' });
+}
+else if (p.includes("VOICE_LINKED")) { 
+    Swal.fire({ title: 'CLOUD LINKED', text: 'Voice commands are now enabled.', icon: 'success', background: '#1a1a1a', color: '#fff', confirmButtonColor: '#9b59b6' });
+}
                 else if (p === "ONLINE" || p.startsWith("DATA|")) {
                     document.getElementById('pg1').style.display='none';
                     if (document.getElementById('pg3').style.display !== 'block') document.getElementById('pg2').style.display = 'block';
@@ -535,10 +541,35 @@ if (topic.includes("/security")) {
 
         function verifyPin() { if(audioCtx.state === 'suspended') audioCtx.resume(); requestWakeLock(); send("VERIFY|" + document.getElementById('entryPin').value); }
         function changePin() { let np = document.getElementById('newPin').value; if(np.length<4){alert("4 DIGITS REQUIRED!"); return;} send("SETPIN|"+np); }
-        function save() { let tv = document.getElementById('at').value, av = document.getElementById('ae').value; currentWait = tv; document.getElementById('abtn').style.display = (av=="1") ? "block" : "none"; send("CONFIG|" + tv + "|" + av); alert("SAVED!"); }
+        function save() { let tv = document.getElementById('at').value, av = document.getElementById('ae').value; currentWait = tv; document.getElementById('abtn').style.display = (av=="1") ? "block" : "none"; send("CONFIG|" + tv + "|" + av);Swal.fire({
+  title: 'SAMXI SMART PRO',
+  text: 'Settings Saved Successfully!',
+  icon: 'success',
+  timer: 2000, // Closes automatically after 2 seconds
+  showConfirmButton: false,
+  background: '#1a1a1a',
+  color: '#ffffff'
+});
         function openTgModal() { document.getElementById('modal').style.display = 'none'; document.getElementById('tgModal').style.display = 'block'; }
         function syncTelegram() { let id = document.getElementById('tgChatId').value.trim(); if(id.length < 5) { showToast("Enter valid ID", "error"); return; } showToast("Telegram Synced!", "green"); send("SETCHAT|" + id); }
-        function factoryReset() { if(confirm("Are you sure?")) send('RESET_FACTORY'); }
+        function factoryReset() {
+    Swal.fire({
+        title: 'ARE YOU SURE?',
+        text: "This will wipe all PINs, WiFi data, and logs permanently!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#e74c3c',
+        cancelButtonColor: '#444',
+        confirmButtonText: 'YES, WIPE EVERYTHING',
+        background: '#1a1a1a',
+        color: '#fff'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            send('RESET_FACTORY');
+            Swal.fire({ title: 'SYSTEM WIPED', text: 'Device is restarting...', icon: 'success', background: '#1a1a1a', color: '#fff' });
+        }
+    })
+}
         function openVoiceModal() { document.getElementById('modal').style.display = 'none'; document.getElementById('voiceModal').style.display = 'block'; }
         function saveVoice() { let k = document.getElementById('sKey').value, s = document.getElementById('sSecret').value, i = document.getElementById('sId').value; if(!k || !s || !i) { showToast("Missing keys!", "error"); return; } send("SINRIC|" + k + "|" + s + "|" + i); }
         function send(c) { if(client && client.isConnected()){ let m = new Paho.MQTT.Message(c); m.destinationName = "samxi/"+dev+"/cmd"; client.send(m); } }
