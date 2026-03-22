@@ -424,7 +424,7 @@
                 else if (p.includes("PIN_CHANGED")) {
                     localStorage.setItem("samxi_pin", document.getElementById('newPin').value);
                     document.getElementById('entryPin').value = document.getElementById('newPin').value;
-                    Swal.fire({ title: 'SECURITY UPDATED', text: 'New PIN active!', icon: 'success', background: '#1a1a1a', color: '#fff' });
+                    Swal.fire({ title: 'SAMXI SECURITY UPDATED', text: 'New PIN active!', icon: 'success', background: '#1a1a1a', color: '#fff' });
                     timerEditing = false;
                 }
                 else if (p.includes("VOICE_LINKED")) { Swal.fire({ title: 'CLOUD LINKED', text: 'Voice commands enabled.', icon: 'success', background: '#1a1a1a', color: '#fff' }); }
@@ -540,7 +540,7 @@
             currentWait = tv; 
             document.getElementById('abtn').style.display = (av == "1") ? "block" : "none"; 
             send("CONFIG|" + tv + "|" + av); 
-            Swal.fire({ title: 'SAVED', text: 'Door Settings Updated Successfully!', icon: 'success', timer: 2000, showConfirmButton: false, background: '#1a1a1a', color: '#fff' });
+            Swal.fire({ title: 'SAMXI SMART PRO', text: 'Door Settings Updated Successfully!', icon: 'success', timer: 2000, showConfirmButton: false, background: '#1a1a1a', color: '#fff' });
         }
 
         function openTgModal() { document.getElementById('modal').style.display = 'none'; document.getElementById('tgModal').style.display = 'block'; }
