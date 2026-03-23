@@ -341,7 +341,7 @@
         }
 
         function connect() {
-            if ("vibrate" in navigator) navigator.vibrate(50);
+            if ("vibrate" in navigator) navigator.vibrate(100);
             dev = document.getElementById('id').value.trim();
             if(!dev) { 
                 Swal.fire({ title: 'PRODUCT ID REQUIRED', text: 'Please enter your Product ID to continue.', icon: 'warning', background: '#1a1a1a', color: '#fff' }); 
@@ -529,7 +529,7 @@
 
         // --- AUTH & MISC ---
         function verifyPin() { 
-            if ("vibrate" in navigator) navigator.vibrate(50);
+            if ("vibrate" in navigator) navigator.vibrate(100);
             if(audioCtx.state === 'suspended') audioCtx.resume(); requestWakeLock(); send("VERIFY|" + document.getElementById('entryPin').value); }
         
         function changePin() { 
