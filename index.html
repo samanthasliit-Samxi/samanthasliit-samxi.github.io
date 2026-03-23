@@ -48,6 +48,13 @@
         .timer-lock{pointer-events:none; opacity:0.35 !important; filter: contrast(0.8);}
         .hist-btn{background:#444; font-size:1.1rem; height:50px; margin-top:20px; border:1px solid #555;}
         .reconnect-btn {
+            #modStat { 
+    margin-bottom: 20px; 
+    text-align: center; 
+    background: rgba(255, 77, 77, 0.1); 
+    padding: 10px; 
+    border-radius: 8px; 
+}
             margin-left: 10px; padding: 8px 15px; background: #f1c40f; color: black;
             border: none; border-radius: 8px; font-weight: bold; font-size: 1rem;
             cursor: pointer; transition: all 0.1s ease; box-shadow: 0 4px 6px rgba(0,0,0,0.4);
@@ -109,6 +116,13 @@
     <div id="modal">
         <div class="modal-content">
             <h2 style="color:#2ecc71; margin-top:0;">SETTINGS</h2>
+            <div id="modal">
+    <div class="modal-content">
+        <h2 style="color:#2ecc71; margin-top:0;">SETTINGS</h2>
+        
+        <div id="modStat"></div> 
+        
+        <label>Auto Close:</label>
             <label>Auto Close:</label>
             <select id="ae" onchange="save()">
                 <option value="1">ENABLED</option>
@@ -351,13 +365,17 @@
             localStorage.setItem("samxi_id", dev);
             client = new Paho.MQTT.Client("broker.hivemq.com", 8884, "cl_" + Math.random().toString(16).slice(2,8));
            
-            client.onConnectionLost = (e) => {
-                if(!isCountingDown) {
-                    document.getElementById('led').className = "led red";
-                    document.getElementById('stat').innerHTML = `OFFLINE <button class="reconnect-btn" onclick="connect();">RECONNECT</button>` + document.getElementById('pCont').outerHTML;
-                    freezePanel(true, true);
-                }
-            };
+client.onConnectionLost = (e) => {
+    if(!isCountingDown) {
+        document.getElementById('led').className = "led red";
+        document.getElementById('stat').innerHTML = `OFFLINE <button class="reconnect-btn" onclick="connect();">RECONNECT</button>` + document.getElementById('pCont').outerHTML;
+        
+        // ADD THIS LINE HERE
+        document.getElementById('modStat').innerHTML = `<span style="color:#ff4d4d; font-weight:bold; margin-right:10px;">OFFLINE</span> <button class="reconnect-btn" onclick="connect();">RECONNECT</button>`;
+        
+        freezePanel(true, true);
+    }
+};
 
             client.onMessageArrived = (m) => {
                 let p = m.payloadString.trim();
@@ -370,6 +388,8 @@
                 }
                 lastMsgTime = Date.now();
                 document.getElementById('led').className = "led green";
+                document.getElementById('modStat').innerHTML = ""; 
+    freezePanel(false, true);
                 if (!isCountingDown) freezePanel(false, true);
 
                 if (topic.includes("/security")) {
@@ -581,7 +601,12 @@
 
         function showProgress(d) { const bar = document.getElementById('pBar'); document.getElementById('pCont').style.display = 'block'; bar.style.width = '0%'; setTimeout(() => { bar.style.transition = `width ${d}s linear`; bar.style.width = '100%'; }, 50); }
         function hideProgress() { document.getElementById('pCont').style.display = 'none'; }
-        function freezePanel(s, f = false) { document.querySelectorAll('#pg3 .btn').forEach(btn => { if (f || btn.id !== 'abtn') s ? btn.classList.add('timer-lock') : btn.classList.remove('timer-lock'); }); }
+        function freezePanel(s, f = false) { 
+    // Targets main buttons AND settings inputs/selects/buttons
+    document.querySelectorAll('#pg3 .btn, #modal input, #modal select, #modal button').forEach(el => { 
+        if (f || el.id !== 'abtn') s ? el.classList.add('timer-lock') : el.classList.remove('timer-lock'); 
+    }); 
+}
 
         window.onload = function() {
             let savedID = localStorage.getItem("samxi_id"); if(savedID) document.getElementById('id').value = savedID;
