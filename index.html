@@ -34,7 +34,7 @@
         .status-box{background:#2a2a2a;margin:15px 0;padding:25px;border-radius:12px;font-size:1.6rem;color:#2ecc71;border:1px solid #333;font-weight:bold; transition: 0.3s; position: relative; overflow: hidden;}
         .progress-container{position:absolute; bottom:0; left:0; width:100%; height:6px; background:#1a1a1a; display:none;}
         .progress-bar{height:100%; width:0%; background:#2ecc71; transition: linear;}
-        .net-status{font-size:0.9rem; margin-bottom:10px; padding:10px; border-radius:8px; font-weight: bold;}
+        .net-status{font-size:0.9rem; margin-bottom:10px; padding:5px; border-radius:5px;}
         .online-bg{background:#1e3a1e; color:#00ff7f;}
         .offline-bg{background:#3a1e1e; color:#ff4d4d;}
         .alert-active{background:#ff4d4d !important; color:white !important; animation: blink 1s infinite;}
@@ -48,7 +48,7 @@
         .timer-lock{pointer-events:none; opacity:0.35 !important; filter: contrast(0.8);}
         .hist-btn{background:#444; font-size:1.1rem; height:50px; margin-top:20px; border:1px solid #555;}
         .reconnect-btn {
-            margin-left: 10px; padding: 10px 15px; background: #f1c40f; color: black;
+            margin-left: 10px; padding: 8px 15px; background: #f1c40f; color: black;
             border: none; border-radius: 8px; font-weight: bold; font-size: 1rem;
             cursor: pointer; transition: all 0.1s ease; box-shadow: 0 4px 6px rgba(0,0,0,0.4);
             vertical-align: middle;
@@ -66,6 +66,12 @@
         .toast-green { background-color: #2ecc71; border: 2px solid #27ae60; color: #141414 !important; }
         @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 40px; opacity: 1;} }
         @keyframes fadeout { from {bottom: 40px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+   #modStat .reconnect-btn {
+            margin-left: 10px; padding: 8px 15px; background: #f1c40f; color: black;
+            border: none; border-radius: 8px; font-weight: bold; font-size: 1rem;
+            cursor: pointer; transition: all 0.1s ease; box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+            vertical-align: middle;
+        }
     </style>
 </head>
 <body>
@@ -109,6 +115,7 @@
     <div id="modal">
         <div class="modal-content">
             <h2 style="color:#2ecc71; margin-top:0;">SETTINGS</h2>
+            <div id="modStat" style="margin-bottom:15px; text-align:center;"></div>
             <label>Auto Close:</label>
             <select id="ae" onchange="save()">
                 <option value="1">ENABLED</option>
@@ -161,8 +168,8 @@
             <hr style="border:0; border-top:1px solid #333; margin:20px 0;">
             <h3 style="color:#ff4d4d; margin:0; font-size:1.1rem;"> UN-AUTHORIZED LOG</h3>
             <div id="securityLogDisplay" style="margin-top:10px; max-height:250px; overflow-y:auto; font-size: 0.85rem; background:#000; padding:5px; border-radius:8px; border:1px solid #333;"></div>
-            <button onclick="downloadPDFReport()" style="background:#2ecc71; color:#141414; margin-top: 20px;"> SECURITY AUDIT REPORT</button>
-            <button onclick="downloadNetworkReport()" style="background:#f1c40f; color:#141414;"> POWER & WIFI REPORT</button>          
+            <button onclick="downloadPDFReport()" style="background:#2ecc71; color:#141414; margin-top: 20px;">📄 SECURITY AUDIT REPORT</button>
+            <button onclick="downloadNetworkReport()" style="background:#f1c40f; color:#141414;">📊 POWER & WIFI REPORT</button>          
             <button onclick="downloadHistoryCSV()" style="background:#3498db; color:white;"> DOWNLOAD MASTER HISTORY (CSV)</button>
             <button onclick="clearHistory()" style="background:#444; color:white; margin-top: 20px;">CLEAR ALL LOGS</button>
             <button onclick="document.getElementById('hModal').style.display='none'" class="exit-link">EXIT</button>
@@ -351,40 +358,31 @@
             localStorage.setItem("samxi_id", dev);
             client = new Paho.MQTT.Client("broker.hivemq.com", 8884, "cl_" + Math.random().toString(16).slice(2,8));
            
-            client.onConnectionLost = (e) => {
+client.onConnectionLost = (e) => {
                 if(!isCountingDown) {
                     document.getElementById('led').className = "led red";
+                    document.getElementById('stat').innerHTML = `OFFLINE <button class="reconnect-btn" onclick="connect();">RECONNECT</button>` + document.getElementById('pCont').outerHTML;
                     
-                    // LOGIN PAGE RECONNECT
-                    const ns = document.getElementById('netStat');
-                    ns.style.display = "block";
-                    ns.innerHTML = 'OFFLINE <button class="reconnect-btn" onclick="connect();">CONNECT TO ONLINE</button>';
-                    ns.className = "net-status offline-bg";
-
-                    // MAIN PAGE RECONNECT
-                    document.getElementById('stat').innerHTML = 'OFFLINE <button class="reconnect-btn" onclick="connect();">CONNECT TO ONLINE</button>' + document.getElementById('pCont').outerHTML;
+                    // Add this line here:
+                    document.getElementById('modStat').innerHTML = `<span style="color:#ff4d4d; font-weight:bold; margin-right:10px;">OFFLINE</span> <button class="reconnect-btn" onclick="connect();">RECONNECT</button>`;
                     
                     freezePanel(true, true);
                 }
             };
 
             client.onMessageArrived = (m) => {
+                document.getElementById('modStat').innerHTML = ""; // <--- NEW LINE 1
+                freezePanel(false); // <--- NEW LINE 2
                 let p = m.payloadString.trim();
                 let topic = m.destinationName;
                 let s = document.getElementById('stat');
                 const nowTime = new Date();
-                
+               
                 if(document.getElementById('lastUpdate')) {
                     document.getElementById('lastUpdate').innerText = "Last update: " + nowTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                 }
                 lastMsgTime = Date.now();
                 document.getElementById('led').className = "led green";
-                
-                // CLEAR RECONNECT MSG
-                const ns = document.getElementById('netStat');
-                ns.innerHTML = "ONLINE";
-                ns.className = "net-status online-bg";
-
                 if (!isCountingDown) freezePanel(false, true);
 
                 if (topic.includes("/security")) {
@@ -405,7 +403,7 @@
                         localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
 
                         if (logMsg.includes("Command")) { addLog(logMsg); }
-                        else { showToast(` LOGGED EVENT #${logId}`, "green"); }
+                        else { showToast(`🛡️ LOGGED EVENT #${logId}`, "green"); }
 
                         if (document.getElementById('hModal').style.display === 'block') {
                             renderSecurityUI();
@@ -596,7 +594,11 @@
 
         function showProgress(d) { const bar = document.getElementById('pBar'); document.getElementById('pCont').style.display = 'block'; bar.style.width = '0%'; setTimeout(() => { bar.style.transition = `width ${d}s linear`; bar.style.width = '100%'; }, 50); }
         function hideProgress() { document.getElementById('pCont').style.display = 'none'; }
-        function freezePanel(s, f = false) { document.querySelectorAll('#pg3 .btn').forEach(btn => { if (f || btn.id !== 'abtn') s ? btn.classList.add('timer-lock') : btn.classList.remove('timer-lock'); }); }
+        function freezePanel(s, f = false) { 
+            document.querySelectorAll('#pg3 .btn, #modal input, #modal select, #modal button').forEach(el => { 
+                if (f || el.id !== 'abtn') s ? el.classList.add('timer-lock') : el.classList.remove('timer-lock'); 
+            }); 
+        }
 
         window.onload = function() {
             let savedID = localStorage.getItem("samxi_id"); if(savedID) document.getElementById('id').value = savedID;
