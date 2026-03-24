@@ -18,7 +18,7 @@
             border: none; cursor: pointer; font-weight: bold;
         }
         body{font-family:sans-serif;text-align:center;background:#141414;color:white;margin:0;}
-        .header{background:#1a1a1a;padding:15px;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #2ecc71;}
+        .header{background:#1a1a1a;padding:15px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #2ecc71;box-shadow: 0 4px 10px rgba(0,0,0,0.5);}
         .led-group{display:flex; align-items:center; gap:12px;}
         .wifi-box{font-size:0.75rem; font-weight:bold; color:#888; display:flex; align-items:center; gap:4px; background:#222; padding:3px 12px; border-radius:15px; border:1px solid #333; transition: 0.3s;}
         .sig-excellent{color:#00ff7f; border-color: #00ff7f;}
@@ -29,10 +29,14 @@
         .red{background:#ff4d4d;box-shadow:0 0 10px #ff4d4d;}
         .gear-icon{width:22px; height:22px; cursor:pointer; fill:#f1c40f; visibility:hidden;}
 .container { 
-    padding: 35px 25px; max-width: 400px; margin: 40px auto; 
+    padding: 35px 20px; 
+    max-width: 360px; /* Reduced width to ensure border is visible on small phones */
+    margin: 30px auto; 
     background: linear-gradient(145deg, #1a1a1a, #0d0d0d); 
-    border-radius: 30px; border: 2px solid #2ecc71; 
-    box-shadow: 0 0 25px rgba(46, 204, 113, 0.2), inset 0 0 15px rgba(0,0,0,0.5);
+    border-radius: 30px; 
+    border: 3px solid #2ecc71; /* Slightly thicker for better visibility */
+    box-shadow: 0 0 30px rgba(46, 204, 113, 0.25);
+    box-sizing: border-box; /* Ensures border stays inside the screen width */
 }
 #id {
     font-size: 1.7rem; font-weight: 900; text-align: center; color: #00ff7f; 
@@ -134,9 +138,9 @@ input:focus { border-color: #2ecc71; outline: none; }
         🛡️ SECURITY SHIELD ACTIVE
     </div>
 
-    <label style="display:block; text-align:left; font-size:0.75rem; color:#f1c40f; margin-bottom: 8px; font-weight:900; padding-left: 10px; text-transform: uppercase;">
-        UNIT AUTHENTICATION KEY
-    </label>
+    <label style="display:block; text-align:center; font-size:0.8rem; color:#f1c40f; margin-bottom: 12px; font-weight:900; letter-spacing: 1px; text-transform: uppercase;">
+    UNIT AUTHENTICATION KEY
+</label>
     
     <input type="text" id="id" placeholder="ENTER PRODUCT ID" value="SAMXI_1222100">
 
