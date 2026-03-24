@@ -153,11 +153,16 @@
     </div>
 </div>
 
-        <div id="pg2" style="display:none;">
-            <div class="status-box">CONNECTED</div>
-            <input type="password" id="entryPin" placeholder="ENTER 4-DIGIT PIN" maxlength="4" style="text-align:center; font-size:1.8rem; border:2px solid #f1c40f;">
-            <button onclick="verifyPin()" class="btn down" style="color:black; background:#f1c40f;">UNLOCK DOOR</button>
-        </div>
+<div id="pg2" style="display:none;">
+    <div class="status-box">CONNECTED</div>
+
+    <label style="display:block; text-align:center; font-size:0.8rem; color:#f1c40f; margin-bottom: 12px; font-weight:900; letter-spacing: 1px; text-transform: uppercase;">
+        USER PIN
+    </label>
+
+    <input type="password" id="entryPin" placeholder="ENTER 4-DIGIT PIN" maxlength="4" style="text-align:center; font-size:1.8rem; border:2px solid #f1c40f;">
+    <button onclick="verifyPin()" class="btn down" style="color:black; background:#f1c40f;">UNLOCK DOOR</button>
+</div>
 
         <div id="pg3" style="display:none;">
             <div class="status-box" id="stat"> CHECKING SENSOR... <div class="progress-container" id="pCont"><div class="progress-bar" id="pBar"></div></div> </div>
