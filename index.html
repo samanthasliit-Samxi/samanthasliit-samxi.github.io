@@ -633,54 +633,64 @@ function downloadHistoryCSV() {
         return; 
     }
 
-    // 1. Create a unified list
     let masterList = [];
 
-    // Add Security Logs to the list
+    // 1. Process Security Logs
     secLogs.forEach(l => {
+        // Convert "DD/MM/YYYY" to "YYYY-MM-DD" for reliable sorting
+        let dateParts = l.date.split('/');
+        let isoDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
         masterList.push({
             type: "SECURITY",
-            date: l.date || '',
-            time: l.time || '',
-            msg: l.msg || '',
-            // Create a timestamp for sorting
-            sortTime: new Date((l.date || '') + ' ' + (l.time || ''))
+            date: l.date,
+            time: l.time,
+            msg: l.msg,
+            // Create a real timestamp for sorting
+            timestamp: new Date(`${isoDate} ${l.time}`).getTime()
         });
     });
 
-    // Add Activity Logs to the list
+    // 2. Process Activity Logs
     regLogs.forEach(l => {
-        // Activity logs already have date and time in the 'date' string
+        // Convert "25 Mar 2026 19:18" to a sortable timestamp
+        let ts = new Date(l.date).getTime();
+        
+        // Extract readable date and time for the CSV columns
+        let d = new Date(l.date);
+        let dateStr = d.getDate().toString().padStart(2, '0') + '/' + 
+                      (d.getMonth() + 1).toString().padStart(2, '0') + '/' + 
+                      d.getFullYear();
+        let timeStr = d.getHours().toString().padStart(2, '0') + ':' + 
+                      d.getMinutes().toString().padStart(2, '0') + ':' + 
+                      d.getSeconds().toString().padStart(2, '0');
+
         masterList.push({
             type: "ACTIVITY",
-            date: l.date || '',
-            time: '', 
-            msg: l.msg || '',
-            sortTime: new Date(l.date)
+            date: dateStr,
+            time: timeStr,
+            msg: l.msg,
+            timestamp: ts
         });
     });
 
-    // 2. Sort by time (Newest at the top)
-    masterList.sort((a, b) => b.sortTime - a.sortTime);
+    // 3. SORT: Unified Chronological Order (Newest first)
+    masterList.sort((a, b) => b.timestamp - a.timestamp);
 
-    // 3. Build the CSV
+    // 4. Build CSV with matching colors/indexing
     let csv = "ORDER,EVENT TYPE,DATE,TIME,DESCRIPTION\n";
     masterList.forEach((l, i) => {
-        let orderNum = i + 1;
-        // Clean commas from messages to avoid breaking CSV columns
-        let cleanMsg = l.msg.replace(/,/g, " ");
-        csv += `${orderNum},${l.type},${l.date},${l.time},${cleanMsg}\n`;
+        let cleanMsg = l.msg.replace(/,/g, " "); // Prevent CSV column breaks
+        csv += `${i + 1},${l.type},${l.date},${l.time},${cleanMsg}\n`;
     });
 
-    // 4. Trigger Download
-    const blob = new Blob([csv], { type: 'text/csv' });
+    // 5. Trigger Download
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
-    const devId = localStorage.getItem("samxi_id") || "DEVICE";
     a.href = url;
-    a.download = `SAMXI_MASTER_LOG_${devId}.csv`;
+    a.download = `SAMXI_MASTER_LOG_FINAL.csv`;
     a.click();
-    showToast("CHRONOLOGICAL MASTER HISTORY DOWNLOADED!", "green");
+    showToast("CHRONOLOGICAL LOG GENERATED", "green");
 }
 
         // --- AUTH & MISC ---
