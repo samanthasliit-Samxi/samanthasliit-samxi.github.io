@@ -341,10 +341,10 @@ function renderSecurityUI() {
     filteredLogs.sort((a, b) => b.id - a.id);
     display.innerHTML = filteredLogs.map((l, index) => {
         let textColor = l.msg.includes("POWER") ? "#f1c40f" : l.msg.includes("WiFi") ? "#3498db" : "#ff4d4d";
-        let orderNum = filteredLogs.length - index; // Counts down from newest to oldest
+        let orderNum = filteredLogs.length - index; 
         return `<div style="padding:10px; border-bottom:1px solid #222; text-align:left;">
-                    <span style="color:#666; font-size:0.7rem;">#${orderNum} | ${l.date} | ${l.time}</span><br>
-                    <b style="color:${textColor}">${l.msg}</b>
+                    <span style="color:#666; font-size:0.7rem;">${l.date} | ${l.time}</span><br>
+                    <b style="color:${textColor}">${orderNum}. ${l.msg}</b>
                 </div>`;
     }).join('');
 }
@@ -352,13 +352,13 @@ function renderSecurityUI() {
 function openHistory() {
     const list = document.getElementById('logList');
     let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
-    // .map() now includes 'index' to create the order number
+    
     list.innerHTML = logs.length ? logs.map((l, index) => {
         let clr = l.msg.includes("Detected") ? "color:#FFFF00;" : "color:#2ecc71;";
-        let orderNum = logs.length - index; // Counts down from newest to oldest
+        let orderNum = logs.length - index; 
         return `<li class="log-item">
-                    <span class="log-date">#${orderNum} | ${l.date}</span>
-                    <span class="log-msg" style="${clr}">${l.msg}</span>
+                    <span class="log-date">${l.date}</span>
+                    <span class="log-msg" style="${clr}">${orderNum}. ${l.msg}</span>
                 </li>`;
     }).join('') : '<li style="text-align:center;color:#666;">No activity found</li>';
     renderSecurityUI();
