@@ -6,11 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2ecc71">
-   
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-   
+    
     <style>
         /* Styling for the Robot Arm Logo */
 /* Clean Tactical Logo - No glow, No motion */
@@ -331,7 +331,9 @@
 function renderSecurityUI() {
     const display = document.getElementById("securityLogDisplay");
     let localAuthLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-    const filteredLogs = localAuthLogs.filter(l => !l.msg.includes("Command"));
+    
+    // THE GOLDEN FIX #1: We tell the red box to IGNORE "Detected", "Sensor", and "SUCCESS" events.
+    const filteredLogs = localAuthLogs.filter(l => !l.msg.includes("Command") && !l.msg.includes("Detected") && !l.msg.includes("Sensor") && !l.msg.includes("SUCCESS"));
     
     if (filteredLogs.length === 0) { 
         display.innerHTML = "<p style='color:#666; text-align:center;'>No security events.</p>"; 
@@ -355,7 +357,7 @@ function openHistory() {
     let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
     
     list.innerHTML = logs.length ? logs.map((l, index) => {
-        let clr = l.msg.includes("Detected") ? "color:#FFFF00;" : "color:#2ecc71;";
+        let clr = l.msg.includes("Detected") || l.msg.includes("Sensor") ? "color:#FFFF00;" : "color:#2ecc71;";
         // index starts at 0, so (index + 1) makes the first item 1.
         let orderNum = index + 1; 
         return `<li class="log-item">
@@ -498,8 +500,13 @@ client.onConnectionLost = (e) => {
                         if (securityLogs.length > 200) securityLogs.pop();
                         localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
 
-                        if (logMsg.includes("Command")) { addLog(logMsg); }
-                        else { showToast(`🛡️ LOGGED EVENT #${logId}`, "green"); }
+                        // THE GOLDEN FIX #2: The App now accepts "Detected" and "Sensor" into the Green Activity History.
+                        if (logMsg.includes("Command") || logMsg.includes("Detected") || logMsg.includes("Sensor") || logMsg.includes("SUCCESS")) { 
+                            addLog(logMsg); 
+                        }
+                        else { 
+                            showToast(`🛡️ LOGGED EVENT #${logId}`, "green"); 
+                        }
 
                         if (document.getElementById('hModal').style.display === 'block') {
                             renderSecurityUI();
