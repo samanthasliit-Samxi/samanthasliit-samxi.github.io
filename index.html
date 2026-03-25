@@ -341,22 +341,23 @@ function renderSecurityUI() {
     filteredLogs.sort((a, b) => b.id - a.id);
     display.innerHTML = filteredLogs.map((l, index) => {
         let textColor = l.msg.includes("POWER") ? "#f1c40f" : l.msg.includes("WiFi") ? "#3498db" : "#ff4d4d";
-        // Newest event gets the highest number
-        let orderNum = filteredLogs.length - index; 
+        // index starts at 0, so (index + 1) makes the top event 1.
+        let orderNum = index + 1; 
         return `<div style="padding:10px; border-bottom:1px solid #222; text-align:left;">
                     <span style="color:#666; font-size:0.7rem;">${l.date} | ${l.time}</span><br>
                     <b style="color:${textColor}">${orderNum}. ${l.msg}</b>
                 </div>`;
     }).join('');
 }
+
 function openHistory() {
     const list = document.getElementById('logList');
     let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
     
     list.innerHTML = logs.length ? logs.map((l, index) => {
         let clr = l.msg.includes("Detected") ? "color:#FFFF00;" : "color:#2ecc71;";
-        // This calculates the index so the newest is the highest number
-        let orderNum = logs.length - index; 
+        // index starts at 0, so (index + 1) makes the first item 1.
+        let orderNum = index + 1; 
         return `<li class="log-item">
                     <span class="log-date">${l.date}</span>
                     <span class="log-msg" style="${clr}">${orderNum}. ${l.msg}</span>
@@ -365,6 +366,7 @@ function openHistory() {
     renderSecurityUI();
     document.getElementById('hModal').style.display = 'block';
 }
+
         function clearHistory() {
             Swal.fire({
                 title: 'TOTAL SYSTEM PURGE?',
