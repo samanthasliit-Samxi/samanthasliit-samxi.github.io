@@ -516,13 +516,14 @@ client.onConnectionLost = (e) => {
                     return;
                 }
 
+                // FIX: Removed the duplicate local 'addLog' triggers for OPEN and CLOSED
                 if (p === "OPENING" || p === "OPEN") {
-                    if (lastSensorStatus !== "OPEN") { showToast("ALERT: Door is Opening!", "error"); vibrateAlert('opening'); addLog("Detected : GateOpened"); startGateReminder(); }
+                    if (lastSensorStatus !== "OPEN") { showToast("ALERT: Door is Opening!", "error"); vibrateAlert('opening'); startGateReminder(); }
                     lastSensorStatus = "OPEN";
                     if (!isStatusLocked) { s.innerHTML = "GATE OPENED" + document.getElementById('pCont').outerHTML; s.style.backgroundColor = "#3a1e1e"; hideProgress(); }
                 }
                 else if (p === "CLOSED") {
-                    if (lastSensorStatus !== "CLOSED") { showToast("SUCCESS: Door is Closed", "green"); vibrateAlert('closed'); addLog("Detected : GateClosed"); stopGateReminder(); }
+                    if (lastSensorStatus !== "CLOSED") { showToast("SUCCESS: Door is Closed", "green"); vibrateAlert('closed'); stopGateReminder(); }
                     lastSensorStatus = "CLOSED";
                     if (!isStatusLocked) { s.innerHTML = "GATE CLOSED" + document.getElementById('pCont').outerHTML; s.style.backgroundColor = "#1e3a1e"; hideProgress(); }
                 }
