@@ -624,18 +624,64 @@ client.onConnectionLost = (e) => {
             html2pdf().set(opt).from(element).save();
         }
 
-        function downloadHistoryCSV() {
-            let regLogs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
-            let secLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-            if (regLogs.length === 0 && secLogs.length === 0) { showToast("No logs found!", "error"); return; }
-            let csv = "EVENT TYPE,DATE,TIME,DESCRIPTION\n";
-            secLogs.forEach(l => { csv += `SECURITY,${l.date || ''},${l.time || ''},${(l.msg || '').replace(/,/g, " ")}\n`; });
-            regLogs.forEach(l => { csv += `ACTIVITY,${l.date || ''}, ,${(l.msg || '').replace(/,/g, " ")}\n`; });
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = `SAMXI_MASTER_HISTORY.csv`; a.click();
-            showToast("MASTER HISTORY DOWNLOADED!", "green");
-        }
+function downloadHistoryCSV() {
+    let regLogs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
+    let secLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
+    
+    if (regLogs.length === 0 && secLogs.length === 0) { 
+        showToast("No logs found!", "error"); 
+        return; 
+    }
+
+    // 1. Create a unified list
+    let masterList = [];
+
+    // Add Security Logs to the list
+    secLogs.forEach(l => {
+        masterList.push({
+            type: "SECURITY",
+            date: l.date || '',
+            time: l.time || '',
+            msg: l.msg || '',
+            // Create a timestamp for sorting
+            sortTime: new Date((l.date || '') + ' ' + (l.time || ''))
+        });
+    });
+
+    // Add Activity Logs to the list
+    regLogs.forEach(l => {
+        // Activity logs already have date and time in the 'date' string
+        masterList.push({
+            type: "ACTIVITY",
+            date: l.date || '',
+            time: '', 
+            msg: l.msg || '',
+            sortTime: new Date(l.date)
+        });
+    });
+
+    // 2. Sort by time (Newest at the top)
+    masterList.sort((a, b) => b.sortTime - a.sortTime);
+
+    // 3. Build the CSV
+    let csv = "ORDER,EVENT TYPE,DATE,TIME,DESCRIPTION\n";
+    masterList.forEach((l, i) => {
+        let orderNum = i + 1;
+        // Clean commas from messages to avoid breaking CSV columns
+        let cleanMsg = l.msg.replace(/,/g, " ");
+        csv += `${orderNum},${l.type},${l.date},${l.time},${cleanMsg}\n`;
+    });
+
+    // 4. Trigger Download
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const devId = localStorage.getItem("samxi_id") || "DEVICE";
+    a.href = url;
+    a.download = `SAMXI_MASTER_LOG_${devId}.csv`;
+    a.click();
+    showToast("CHRONOLOGICAL MASTER HISTORY DOWNLOADED!", "green");
+}
 
         // --- AUTH & MISC ---
         function verifyPin() {
