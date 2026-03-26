@@ -468,53 +468,60 @@ client.onConnectionLost = (e) => {
     }
 };
 
-            client.onMessageArrived = (m) => {
-                document.getElementById('modStat').innerHTML = ""; // <--- NEW LINE 1
-                freezePanel(false); // <--- NEW LINE 2
-                let p = m.payloadString.trim();
-                let topic = m.destinationName;
-                let s = document.getElementById('stat');
-                const nowTime = new Date();
-               
-                if(document.getElementById('lastUpdate')) {
-                    document.getElementById('lastUpdate').innerText = "Last update: " + nowTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                }
-                lastMsgTime = Date.now();
-                document.getElementById('led').className = "led green";
-                if (!isCountingDown) freezePanel(false, true);
+client.onMessageArrived = (m) => {
+    document.getElementById('modStat').innerHTML = "";
+    freezePanel(false);
+    let p = m.payloadString.trim();
+    let topic = m.destinationName;
+    let s = document.getElementById('stat');
+    const nowTime = new Date();
+    
+    if(document.getElementById('lastUpdate')) {
+        document.getElementById('lastUpdate').innerText = "Last update: " + nowTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+    lastMsgTime = Date.now();
+    document.getElementById('led').className = "led green";
+    if (!isCountingDown) freezePanel(false, true);
 
-                if (topic.includes("/security")) {
-                    let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-                    let parts = p.split('|');
-                    if (parts.length < 4) return;
-                    let logId = parseInt(parts[0]);
-                    let espDate = parts[1];
-                    let espTime = parts[2];
-                    let logMsg = parts[3];
+    if (topic.includes("/security")) {
+        let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
+        let parts = p.split('|');
+        if (parts.length < 4) return;
+        
+        let logId = parseInt(parts[0]);
+        let espDate = parts[1]; // Arduino Date (e.g., 27/03/2026)
+        let espTime = parts[2]; // Arduino Time (e.g., 10:05:00)
+        let logMsg = parts[3];
 
-                    if (!processedLogIds.includes(logId)) {
-                        processedLogIds.push(logId);
-                        if (processedLogIds.length > 500) processedLogIds.shift();
-                        localStorage.setItem("processed_ids", JSON.stringify(processedLogIds));
-                        securityLogs.unshift({ id: logId, date: espDate, time: espTime, msg: logMsg });
-                        if (securityLogs.length > 200) securityLogs.pop();
-                        localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
+        if (!processedLogIds.includes(logId)) {
+            processedLogIds.push(logId);
+            if (processedLogIds.length > 500) processedLogIds.shift();
+            localStorage.setItem("processed_ids", JSON.stringify(processedLogIds));
+            
+            securityLogs.unshift({ id: logId, date: espDate, time: espTime, msg: logMsg });
+            if (securityLogs.length > 200) securityLogs.pop();
+            localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
 
-                        // THE GOLDEN FIX #2: The App now accepts "Detected" and "Sensor" into the Green Activity History.
-                        if (logMsg.includes("Command") || logMsg.includes("Detected") || logMsg.includes("Sensor") || logMsg.includes("SUCCESS")) { 
-                            addLog(logMsg); 
-                        }
-                        else { 
-                            showToast(`🛡️ LOGGED EVENT #${logId}`, "green"); 
-                        }
+            // THE CRITICAL CHANGE FOR ACTIVITY HISTORY:
+            // Instead of using phone time, we manually add a log entry using the ESP's hardware time.
+            if (logMsg.includes("Command") || logMsg.includes("Detected") || logMsg.includes("Sensor") || logMsg.includes("SUCCESS")) { 
+                let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
+                // We format the string to match your Activity History style but use Arduino's time!
+                logs.unshift({ date: espDate + " " + espTime, msg: logMsg });
+                if(logs.length > 1200) logs.pop();
+                localStorage.setItem("samxi_logs", JSON.stringify(logs));
+            }
+            else { 
+                showToast(`🛡️ LOGGED EVENT #${logId}`, "green"); 
+            }
 
-                        if (document.getElementById('hModal').style.display === 'block') {
-                            renderSecurityUI();
-                            openHistory();
-                        }
-                    }
-                    return;
-                }
+            if (document.getElementById('hModal').style.display === 'block') {
+                renderSecurityUI();
+                openHistory();
+            }
+        }
+        return;
+    }
 
                 // FIX: Removed the duplicate local 'addLog' triggers for OPEN and CLOSED
                 if (p === "OPENING" || p === "OPEN") {
