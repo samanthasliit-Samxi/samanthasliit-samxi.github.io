@@ -683,7 +683,6 @@ function downloadHistoryCSV() {
 
     // 1. Process Security Logs
     secLogs.forEach(l => {
-        // Convert "DD/MM/YYYY" to "YYYY-MM-DD" for reliable sorting
         let dateParts = l.date.split('/');
         let isoDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
         masterList.push({
@@ -691,24 +690,22 @@ function downloadHistoryCSV() {
             date: l.date,
             time: l.time,
             msg: l.msg,
-            // Create a real timestamp for sorting
             timestamp: new Date(`${isoDate} ${l.time}`).getTime()
         });
     });
 
     // 2. Process Activity Logs
     regLogs.forEach(l => {
-        // Convert "25 Mar 2026 19:18" to a sortable timestamp
-        let ts = new Date(l.date).getTime();
+        // --- FIX STARTS HERE ---
+        // Instead of new Date(l.date), we manually parse "DD/MM/YYYY HH:MM:SS"
+        let parts = l.date.split(' '); 
+        let dParts = parts[0].split('/');
+        let isoDate = `${dParts[2]}-${dParts[1]}-${dParts[0]}`;
+        let ts = new Date(`${isoDate} ${parts[1]}`).getTime();
         
-        // Extract readable date and time for the CSV columns
-        let d = new Date(l.date);
-        let dateStr = d.getDate().toString().padStart(2, '0') + '/' + 
-                      (d.getMonth() + 1).toString().padStart(2, '0') + '/' + 
-                      d.getFullYear();
-        let timeStr = d.getHours().toString().padStart(2, '0') + ':' + 
-                      d.getMinutes().toString().padStart(2, '0') + ':' + 
-                      d.getSeconds().toString().padStart(2, '0');
+        let dateStr = parts[0];
+        let timeStr = parts[1];
+        // --- FIX ENDS HERE ---
 
         masterList.push({
             type: "ACTIVITY",
@@ -725,7 +722,7 @@ function downloadHistoryCSV() {
     // 4. Build CSV with matching colors/indexing
     let csv = "ORDER,EVENT TYPE,DATE,TIME,DESCRIPTION\n";
     masterList.forEach((l, i) => {
-        let cleanMsg = l.msg.replace(/,/g, " "); // Prevent CSV column breaks
+        let cleanMsg = l.msg.replace(/,/g, " "); 
         csv += `${i + 1},${l.type},${l.date},${l.time},${cleanMsg}\n`;
     });
 
