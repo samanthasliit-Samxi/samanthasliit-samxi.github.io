@@ -318,15 +318,28 @@
             document.getElementById('stat').style.backgroundColor = "";
         }
 
-        function addLog(msg) {
-            const now = new Date();
-            const dateStr = now.toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'});
-            const timeStr = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-            let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
-            logs.unshift({ date: dateStr + " " + timeStr, msg: msg });
-            if(logs.length > 1200) logs.pop();
-            localStorage.setItem("samxi_logs", JSON.stringify(logs));
-        }
+function addLog(msg) {
+    const now = new Date();
+    // Formats date to match Arduino: DD/MM/YYYY
+    const dateStr = now.getDate().toString().padStart(2, '0') + '/' + 
+                    (now.getMonth() + 1).toString().padStart(2, '0') + '/' + 
+                    now.getFullYear();
+    
+    // Formats time to match Arduino: HH:MM:SS (24-hour)
+    const timeStr = now.getHours().toString().padStart(2, '0') + ':' + 
+                    now.getMinutes().toString().padStart(2, '0') + ':' + 
+                    now.getSeconds().toString().padStart(2, '0');
+    
+    let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
+    
+    // Add the new local action to the list
+    logs.unshift({ date: dateStr + " " + timeStr, msg: msg });
+    
+    // MASTER LIMIT: Keep 1000 for the CSV Download
+    if(logs.length > 1000) logs = logs.slice(0, 1000);
+    
+    localStorage.setItem("samxi_logs", JSON.stringify(logs));
+}
 
 function renderSecurityUI() {
     const display = document.getElementById("securityLogDisplay");
@@ -355,16 +368,30 @@ function renderSecurityUI() {
 function openHistory() {
     const list = document.getElementById('logList');
     let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
-    
-    list.innerHTML = logs.length ? logs.map((l, index) => {
-        let clr = l.msg.includes("Detected") || l.msg.includes("Sensor") ? "color:#FFFF00;" : "color:#2ecc71;";
-        // index starts at 0, so (index + 1) makes the first item 1.
-        let orderNum = index + 1; 
-        return `<li class="log-item">
-                    <span class="log-date">${l.date}</span>
-                    <span class="log-msg" style="${clr}">${orderNum}. ${l.msg}</span>
-                </li>`;
-    }).join('') : '<li style="text-align:center;color:#666;">No activity found</li>';
+
+    if (logs.length === 0) {
+        list.innerHTML = '<li style="text-align:center;color:#666;">No activity found</li>';
+    } else {
+        // SORTING: This ensures the newest time is always at the top (Entry #1)
+        logs.sort((a, b) => {
+            // Converts "DD/MM/YYYY HH:MM:SS" into a sortable number
+            let dateA = new Date(a.date.split(' ')[0].split('/').reverse().join('-') + ' ' + a.date.split(' ')[1]);
+            let dateB = new Date(b.date.split(' ')[0].split('/').reverse().join('-') + ' ' + b.date.split(' ')[1]);
+            return dateB - dateA; 
+        });
+
+        // LIMITING: Only show the latest 200 events in the UI
+        const limitedLogs = logs.slice(0, 200);
+
+        list.innerHTML = limitedLogs.map((l, index) => {
+            let clr = l.msg.includes("Detected") || l.msg.includes("Sensor") ? "color:#FFFF00;" : "color:#2ecc71;";
+            let orderNum = index + 1; 
+            return `<li class="log-item">
+                        <span class="log-date">${l.date}</span>
+                        <span class="log-msg" style="${clr}">${orderNum}. ${l.msg}</span>
+                    </li>`;
+        }).join('');
+    }
     renderSecurityUI();
     document.getElementById('hModal').style.display = 'block';
 }
@@ -505,12 +532,16 @@ client.onMessageArrived = (m) => {
             // THE CRITICAL CHANGE FOR ACTIVITY HISTORY:
             // Instead of using phone time, we manually add a log entry using the ESP's hardware time.
             if (logMsg.includes("Command") || logMsg.includes("Detected") || logMsg.includes("Sensor") || logMsg.includes("SUCCESS")) { 
-                let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
-                // We format the string to match your Activity History style but use Arduino's time!
-                logs.unshift({ date: espDate + " " + espTime, msg: logMsg });
-                if(logs.length > 1200) logs.pop();
-                localStorage.setItem("samxi_logs", JSON.stringify(logs));
-            }
+            let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
+            
+            // Add the new entry
+            logs.unshift({ date: espDate + " " + espTime, msg: logMsg });
+            
+            // MASTER LIMIT: Keep 1000 events for the CSV Master History
+            if(logs.length > 1000) logs = logs.slice(0, 1000);
+            
+            localStorage.setItem("samxi_logs", JSON.stringify(logs));
+        }
             else { 
                 showToast(`🛡️ LOGGED EVENT #${logId}`, "green"); 
             }
