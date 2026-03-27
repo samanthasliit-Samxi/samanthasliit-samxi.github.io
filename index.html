@@ -510,40 +510,37 @@ client.onMessageArrived = (m) => {
     document.getElementById('led').className = "led green";
     if (!isCountingDown) freezePanel(false, true);
 
-    if (topic.includes("/security")) {
+if (topic.includes("/security")) {
         let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
         let parts = p.split('|');
         if (parts.length < 4) return;
-       
+        
         let logId = parseInt(parts[0]);
-        let espDate = parts[1]; // Arduino Date (e.g., 27/03/2026)
-        let espTime = parts[2]; // Arduino Time (e.g., 10:05:00)
+        let espDate = parts[1];
+        let espTime = parts[2];
         let logMsg = parts[3];
 
         if (!processedLogIds.includes(logId)) {
             processedLogIds.push(logId);
             if (processedLogIds.length > 500) processedLogIds.shift();
             localStorage.setItem("processed_ids", JSON.stringify(processedLogIds));
-           
+            
+            // ALWAYS save to Security Records (This fixes the empty PDF reports)
             securityLogs.unshift({ id: logId, date: espDate, time: espTime, msg: logMsg });
-            if (securityLogs.length > 200) securityLogs.pop();
+            if (securityLogs.length > 500) securityLogs.pop();
             localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
 
-            // THE CRITICAL CHANGE FOR ACTIVITY HISTORY:
-            // Instead of using phone time, we manually add a log entry using the ESP's hardware time.
-            if (logMsg.includes("Command") || logMsg.includes("Detected") || logMsg.includes("Sensor") || logMsg.includes("SUCCESS")) {
-            let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
-           
-            // Add the new entry
-            logs.unshift({ date: espDate + " " + espTime, msg: logMsg });
-           
-            // MASTER LIMIT: Keep 1000 events for the CSV Master History
-            if(logs.length > 1000) logs = logs.slice(0, 1000);
-           
-            localStorage.setItem("samxi_logs", JSON.stringify(logs));
-        }
-            else {
-                showToast(`🛡️ LOGGED EVENT #${logId}`, "green");
+            // Logic to decide what goes into the GREEN Activity History tab
+            // Added "FAILURE" and "RESTORED" so Power/WiFi events show up here too
+            if (logMsg.includes("Command") || logMsg.includes("Detected") || logMsg.includes("Sensor") || 
+                logMsg.includes("SUCCESS") || logMsg.includes("FAILURE") || logMsg.includes("RESTORED")) {
+                
+                let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
+                logs.unshift({ date: espDate + " " + espTime, msg: logMsg });
+                if(logs.length > 1000) logs = logs.slice(0, 1000);
+                localStorage.setItem("samxi_logs", JSON.stringify(logs));
+            } else {
+                showToast(`🛡️ SYSTEM EVENT RECORDED`, "green");
             }
 
             if (document.getElementById('hModal').style.display === 'block') {
