@@ -670,7 +670,7 @@ if (topic.includes("/security")) {
 function downloadHistoryCSV() {
     let regLogs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
     let secLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-   
+    
     if (regLogs.length === 0 && secLogs.length === 0) {
         showToast("No logs found!", "error");
         return;
@@ -678,48 +678,57 @@ function downloadHistoryCSV() {
 
     let masterList = [];
 
-    // 1. Process Security Logs
+    // 1. Process Security Records (Hardware Logs)
     secLogs.forEach(l => {
-        // Convert "DD/MM/YYYY" to "YYYY-MM-DD" for reliable sorting
         let dateParts = l.date.split('/');
+        // Ensure date is in YYYY-MM-DD format for the Date constructor
         let isoDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+        
+        // --- THE FIX: INTELLIGENT CATEGORIZATION ---
+        // Normal activities labeled as ACTIVITY, actual threats as SECURITY
+        let eventType = "SECURITY";
+        if (l.msg.includes("Command") || l.msg.includes("Sensor") || l.msg.includes("SUCCESS") || l.msg.includes("RESTORED") || l.msg.includes("ONLINE")) {
+            eventType = "ACTIVITY";
+        }
+
         masterList.push({
-            type: "SECURITY",
+            type: eventType,
             date: l.date,
             time: l.time,
             msg: l.msg,
-            // Create a real timestamp for sorting
             timestamp: new Date(`${isoDate} ${l.time}`).getTime()
         });
     });
 
-    // 2. Process Activity Logs
+    // 2. Process Activity Logs (Phone Logs)
     regLogs.forEach(l => {
-        // Convert "25 Mar 2026 19:18" to a sortable timestamp
-        let ts = new Date(l.date).getTime();
-       
-        // Extract readable date and time for the CSV columns
-        let d = new Date(l.date);
-        let dateStr = d.getDate().toString().padStart(2, '0') + '/' +
-                      (d.getMonth() + 1).toString().padStart(2, '0') + '/' +
-                      d.getFullYear();
-        let timeStr = d.getHours().toString().padStart(2, '0') + ':' +
-                      d.getMinutes().toString().padStart(2, '0') + ':' +
-                      d.getSeconds().toString().padStart(2, '0');
+        // Fix for the NaN issue: Manually parse the DD/MM/YYYY string
+        let parts = l.date.split(' ');
+        let dParts = parts[0].split('/');
+        let isoDate = `${dParts[2]}-${dParts[1]}-${dParts[0]}`;
+        let ts = new Date(`${isoDate} ${parts[1]}`).getTime();
+        
+        let dateStr = l.date.split(' ')[0];
+        let timeStr = l.date.split(' ')[1];
 
-        masterList.push({
-            type: "ACTIVITY",
-            date: dateStr,
-            time: timeStr,
-            msg: l.msg,
-            timestamp: ts
-        });
+        // Only add if not a duplicate of a hardware log already added
+        let isDuplicate = masterList.some(item => item.msg === l.msg && Math.abs(item.timestamp - ts) < 2000);
+        
+        if (!isDuplicate) {
+            masterList.push({
+                type: "ACTIVITY",
+                date: dateStr,
+                time: timeStr,
+                msg: l.msg,
+                timestamp: ts
+            });
+        }
     });
 
     // 3. SORT: Unified Chronological Order (Newest first)
     masterList.sort((a, b) => b.timestamp - a.timestamp);
 
-    // 4. Build CSV with matching colors/indexing
+    // 4. Build CSV
     let csv = "ORDER,EVENT TYPE,DATE,TIME,DESCRIPTION\n";
     masterList.forEach((l, i) => {
         let cleanMsg = l.msg.replace(/,/g, " "); // Prevent CSV column breaks
