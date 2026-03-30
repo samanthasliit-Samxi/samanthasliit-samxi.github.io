@@ -789,6 +789,35 @@ function downloadHistoryCSV() {
         }
 
         function openTgModal() { document.getElementById('modal').style.display = 'none'; document.getElementById('tgModal').style.display = 'block'; }
+        toggleTgView('single'); // Add this line here to always start on Personal view
+}
+
+/* --- INSERT THE NEW CODE DIRECTLY AFTER IT --- */
+
+function toggleTgView(mode) {
+    const sView = document.getElementById('viewSingle');
+    const mView = document.getElementById('viewMulti');
+    const sTab = document.getElementById('tabSingle');
+    const mTab = document.getElementById('tabMulti');
+    const label = document.getElementById('idLabel');
+    const input = document.getElementById('tgChatId');
+
+    if (mode === 'single') {
+        sView.style.display = 'block';
+        mView.style.display = 'none';
+        sTab.style.background = '#3498db'; sTab.style.color = 'white';
+        mTab.style.background = '#333'; mTab.style.color = '#888';
+        label.innerText = "ENTER PERSONAL ID:";
+        input.placeholder = "Example: 987654321";
+    } else {
+        sView.style.display = 'none';
+        mView.style.display = 'block';
+        mTab.style.background = '#3498db'; mTab.style.color = 'white';
+        sTab.style.background = '#333'; sTab.style.color = '#888';
+        label.innerText = "ENTER FAMILY GROUP ID:";
+        input.placeholder = "Example: -100123456789";
+    }
+}
         function syncTelegram() {
             let id = document.getElementById('tgChatId').value.trim();
             if(id.length < 5) { showToast("Enter valid ID", "error"); return; }
