@@ -220,16 +220,40 @@
         </div>
     </div>
 
-    <div id="tgModal">
-        <div class="modal-content">
-            <h2 style="color:#3498db; margin-top:0;">TELEGRAM SYNC</h2>
-            <p style="color:#aaa; font-size:0.8rem;">1. Start <a href="https://t.me/Samxi_Security_bot" target="_blank" style="color:#3498db; text-decoration: underline;">@Samxi_Security_bot</a></p>
-            <p style="color:#aaa; font-size:0.8rem;">2. Get your ID from <a href="https://t.me/userinfobot" target="_blank" style="color:#3498db; text-decoration: underline;">@userinfobot</a></p>
-            <input type="text" id="tgChatId" placeholder="Paste Chat ID here">
-            <button onclick="syncTelegram()" style="background:#3498db; color:white;">SAVE TO DOOR</button>
-            <button onclick="document.getElementById('tgModal').style.display='none'; document.getElementById('modal').style.display='block';" class="exit-link" style="font-size:1.5rem;">BACK</button>
+<div id="tgModal">
+    <div class="modal-content" style="border: 2px solid #3498db;">
+        <h2 style="color:#3498db; margin-top:0; text-align:center;">FAMILY ALERTS SETUP</h2>
+        
+        <p style="color:#eee; font-size:0.9rem; font-weight:bold;">Follow these 3 simple steps:</p>
+
+        <div style="background:#222; padding:10px; border-radius:10px; margin-bottom:10px;">
+            <span style="color:#3498db; font-weight:bold;">STEP 1:</span> Create a Telegram Group with your family and add the bot.
+            <button onclick="window.open('https://t.me/Samxi_Security_bot')" 
+                style="background:#3498db; color:white; height:35px; margin-top:10px; font-size:0.8rem;">
+                1. START SECURITY BOT
+            </button>
         </div>
+
+        <div style="background:#222; padding:10px; border-radius:10px; margin-bottom:10px;">
+            <span style="color:#3498db; font-weight:bold;">STEP 2:</span> Add this "ID Bot" to your new group to see the Group ID.
+            <button onclick="window.open('https://t.me/GetIDsBot')" 
+                style="background:#3498db; color:white; height:35px; margin-top:10px; font-size:0.8rem;">
+                2. GET GROUP ID
+            </button>
+        </div>
+
+        <div style="background:#222; padding:10px; border-radius:10px;">
+            <span style="color:#3498db; font-weight:bold;">STEP 3:</span> Paste the Group ID below. 
+            <small style="display:block; color:#888; margin-top:5px;">(Note: Group IDs usually start with a minus - )</small>
+            <input type="text" id="tgChatId" placeholder="Example: -10012345678" style="border:1px solid #3498db;">
+            <button onclick="syncTelegram()" style="background:#2ecc71; color:black; font-weight:bold;">
+                SAVE TO ALL PHONES
+            </button>
+        </div>
+
+        <button onclick="document.getElementById('tgModal').style.display='none'; document.getElementById('modal').style.display='block';" class="exit-link">BACK</button>
     </div>
+</div>
 
     <div id="voiceModal">
         <div class="modal-content">
