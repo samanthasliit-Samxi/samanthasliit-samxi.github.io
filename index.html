@@ -221,40 +221,40 @@
     </div>
 
 <div id="tgModal">
-    <div class="modal-content" style="border: 2px solid #3498db;">
-        <h2 style="color:#3498db; margin-top:0; text-align:center;">FAMILY ALERTS SETUP</h2>
+    <div class="modal-content" style="border: 2px solid #3498db; padding-bottom: 40px;">
+        <h2 style="color:#3498db; margin-top:0; text-align:center;">NOTIFICATION SYNC</h2>
         
-        <p style="color:#eee; font-size:0.9rem; font-weight:bold;">Follow these 3 simple steps:</p>
-
-        <div style="background:#222; padding:10px; border-radius:10px; margin-bottom:10px;">
-            <span style="color:#3498db; font-weight:bold;">STEP 1:</span> Create a Telegram Group with your family and add the bot.
-            <button onclick="window.open('https://t.me/Samxi_Security_bot')" 
-                style="background:#3498db; color:white; height:35px; margin-top:10px; font-size:0.8rem;">
-                1. START SECURITY BOT
-            </button>
+        <div style="display:flex; gap:10px; margin-bottom:20px;">
+            <button id="tabSingle" onclick="toggleTgView('single')" style="flex:1; height:45px; font-size:0.8rem; background:#3498db; color:white; border-radius:10px; border:none; font-weight:bold; cursor:pointer;">PERSONAL</button>
+            <button id="tabMulti" onclick="toggleTgView('multi')" style="flex:1; height:45px; font-size:0.8rem; background:#333; color:#888; border-radius:10px; border:none; font-weight:bold; cursor:pointer;">FAMILY GROUP</button>
         </div>
 
-        <div style="background:#222; padding:10px; border-radius:10px; margin-bottom:10px;">
-            <span style="color:#3498db; font-weight:bold;">STEP 2:</span> Add this "ID Bot" to your new group to see the Group ID.
-            <button onclick="window.open('https://t.me/GetIDsBot')" 
-                style="background:#3498db; color:white; height:35px; margin-top:10px; font-size:0.8rem;">
-                2. GET GROUP ID
-            </button>
+        <div id="viewSingle">
+            <p style="color:#aaa; font-size:0.85rem; text-align:center;">Private alerts sent only to your phone.</p>
+            <button onclick="window.open('https://t.me/Samxi_Security_bot')" style="background:#222; border:1px solid #3498db; color:#3498db; height:40px; margin-bottom:10px;">1. START @Samxi_Security_bot</button>
+            <button onclick="window.open('https://t.me/userinfobot')" style="background:#222; border:1px solid #3498db; color:#3498db; height:40px;">2. GET YOUR PERSONAL ID</button>
         </div>
 
-        <div style="background:#222; padding:10px; border-radius:10px;">
-            <span style="color:#3498db; font-weight:bold;">STEP 3:</span> Paste the Group ID below. 
-            <small style="display:block; color:#888; margin-top:5px;">(Note: Group IDs usually start with a minus - )</small>
-            <input type="text" id="tgChatId" placeholder="Example: -10012345678" style="border:1px solid #3498db;">
-            <button onclick="syncTelegram()" style="background:#2ecc71; color:black; font-weight:bold;">
-                SAVE TO ALL PHONES
-            </button>
+        <div id="viewMulti" style="display:none;">
+            <p style="color:#aaa; font-size:0.85rem; text-align:center;">Everyone in the group gets alerts together.</p>
+            <div style="background:#111; padding:12px; border-radius:10px; font-size:0.8rem; color:#eee; line-height:1.5;">
+                1. Create a Telegram Group.<br>
+                2. Add <span style="color:#3498db;">@Samxi_Security_bot</span> to the group.<br>
+                3. Add <span style="color:#3498db;">@GetIDsBot</span> to see the Group ID.
+            </div>
+            <button onclick="window.open('https://t.me/GetIDsBot')" style="background:#3498db; color:white; height:40px; margin-top:10px;">OPEN ID BOT</button>
         </div>
 
-        <button onclick="document.getElementById('tgModal').style.display='none'; document.getElementById('modal').style.display='block';" class="exit-link">BACK</button>
+        <hr style="border:0; border-top:1px solid #333; margin:25px 0;">
+
+        <label id="idLabel" style="color:#f1c40f; font-size:0.8rem; font-weight:bold; display:block; text-align:center; margin-bottom:10px;">ENTER PERSONAL ID:</label>
+        <input type="text" id="tgChatId" placeholder="Paste ID Number Here" style="border: 2px solid #3498db; text-align: center; font-size: 1.2rem; background:#000;">
+        
+        <button onclick="syncTelegram()" style="background:#2ecc71; color:black; font-weight:bold; height:55px; font-size:1.1rem; border-radius:15px; margin-top:10px;">SAVE TO SAMXI PRO</button>
+        
+        <button onclick="document.getElementById('tgModal').style.display='none'; document.getElementById('modal').style.display='block';" class="exit-link" style="font-size:1.5rem; margin-top:20px;">BACK</button>
     </div>
 </div>
-
     <div id="voiceModal">
         <div class="modal-content">
             <h2 style="color:#9b59b6; margin-top:0;"> VOICE SETUP</h2>
