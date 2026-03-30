@@ -342,83 +342,57 @@
             document.getElementById('stat').style.backgroundColor = "";
         }
 
-function addLog(msg) {
-    const now = new Date();
-    // Formats date to match Arduino: DD/MM/YYYY
-    const dateStr = now.getDate().toString().padStart(2, '0') + '/' +
-                    (now.getMonth() + 1).toString().padStart(2, '0') + '/' +
-                    now.getFullYear();
-   
-    // Formats time to match Arduino: HH:MM:SS (24-hour)
-    const timeStr = now.getHours().toString().padStart(2, '0') + ':' +
-                    now.getMinutes().toString().padStart(2, '0') + ':' +
-                    now.getSeconds().toString().padStart(2, '0');
-   
-    let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
-   
-    // Add the new local action to the list
-    logs.unshift({ date: dateStr + " " + timeStr, msg: msg });
-   
-    // MASTER LIMIT: Keep 1000 for the CSV Download
-    if(logs.length > 1000) logs = logs.slice(0, 1000);
-   
-    localStorage.setItem("samxi_logs", JSON.stringify(logs));
-}
+        function addLog(msg) {
+            const now = new Date();
+            const dateStr = now.getDate().toString().padStart(2, '0') + '/' + (now.getMonth() + 1).toString().padStart(2, '0') + '/' + now.getFullYear();
+            const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0') + ':' + now.getSeconds().toString().padStart(2, '0');
+            let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
+            logs.unshift({ date: dateStr + " " + timeStr, msg: msg });
+            if(logs.length > 1000) logs = logs.slice(0, 1000);
+            localStorage.setItem("samxi_logs", JSON.stringify(logs));
+        }
 
-function renderSecurityUI() {
-    const display = document.getElementById("securityLogDisplay");
-    let localAuthLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-   
-    // THE GOLDEN FIX #1: We tell the red box to IGNORE "Detected", "Sensor", and "SUCCESS" events.
-    const filteredLogs = localAuthLogs.filter(l => !l.msg.includes("Command") && !l.msg.includes("Detected") && !l.msg.includes("Sensor") && !l.msg.includes("SUCCESS"));
-   
-    if (filteredLogs.length === 0) {
-        display.innerHTML = "<p style='color:#666; text-align:center;'>No security events.</p>";
-        return;
-    }
+        function renderSecurityUI() {
+            const display = document.getElementById("securityLogDisplay");
+            let localAuthLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
+            const filteredLogs = localAuthLogs.filter(l => !l.msg.includes("Command") && !l.msg.includes("Detected") && !l.msg.includes("Sensor") && !l.msg.includes("SUCCESS"));
+            if (filteredLogs.length === 0) {
+                display.innerHTML = "<p style='color:#666; text-align:center;'>No security events.</p>";
+                return;
+            }
+            filteredLogs.sort((a, b) => b.id - a.id);
+            display.innerHTML = filteredLogs.map((l, index) => {
+                let textColor = l.msg.includes("POWER") ? "#f1c40f" : l.msg.includes("WiFi") ? "#3498db" : "#ff4d4d";
+                return `<div style="padding:10px; border-bottom:1px solid #222; text-align:left;">
+                            <span style="color:#666; font-size:0.7rem;">${l.date} | ${l.time}</span><br>
+                            <b style="color:${textColor}">${index + 1}. ${l.msg}</b>
+                        </div>`;
+            }).join('');
+        }
 
-    filteredLogs.sort((a, b) => b.id - a.id);
-    display.innerHTML = filteredLogs.map((l, index) => {
-        let textColor = l.msg.includes("POWER") ? "#f1c40f" : l.msg.includes("WiFi") ? "#3498db" : "#ff4d4d";
-        // index starts at 0, so (index + 1) makes the top event 1.
-        let orderNum = index + 1;
-        return `<div style="padding:10px; border-bottom:1px solid #222; text-align:left;">
-                    <span style="color:#666; font-size:0.7rem;">${l.date} | ${l.time}</span><br>
-                    <b style="color:${textColor}">${orderNum}. ${l.msg}</b>
-                </div>`;
-    }).join('');
-}
-
-function openHistory() {
-    const list = document.getElementById('logList');
-    let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
-
-    if (logs.length === 0) {
-        list.innerHTML = '<li style="text-align:center;color:#666;">No activity found</li>';
-    } else {
-        // SORTING: This ensures the newest time is always at the top (Entry #1)
-        logs.sort((a, b) => {
-            // Converts "DD/MM/YYYY HH:MM:SS" into a sortable number
-            let dateA = new Date(a.date.split(' ')[0].split('/').reverse().join('-') + ' ' + a.date.split(' ')[1]);
-            let dateB = new Date(b.date.split(' ')[0].split('/').reverse().join('-') + ' ' + b.date.split(' ')[1]);
-            return dateB - dateA;
-        });
-
-        // LIMITING: Only show the latest 200 events in the UI
-        const limitedLogs = logs.slice(0, 200);
-
-        list.innerHTML = limitedLogs.map((l, index) => {
-            let clr = l.msg.includes("Detected") || l.msg.includes("Sensor") ? "color:#FFFF00;" : "color:#2ecc71;";
-            let orderNum = index + 1;
-            return `<li class="log-item">
-                        <span class="log-date">${l.date}</span>
-                        <span class="log-msg" style="${clr}">${orderNum}. ${l.msg}</span>
-                    </li>`;
-        }).join('');
-    }
-    renderSecurityUI();
-    document.getElementById('hModal').style.display = 'block';
-}
+        function openHistory() {
+            const list = document.getElementById('logList');
+            let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
+            if (logs.length === 0) {
+                list.innerHTML = '<li style="text-align:center;color:#666;">No activity found</li>';
+            } else {
+                logs.sort((a, b) => {
+                    let dateA = new Date(a.date.split(' ')[0].split('/').reverse().join('-') + ' ' + a.date.split(' ')[1]);
+                    let dateB = new Date(b.date.split(' ')[0].split('/').reverse().join('-') + ' ' + b.date.split(' ')[1]);
+                    return dateB - dateA;
+                });
+                const limitedLogs = logs.slice(0, 200);
+                list.innerHTML = limitedLogs.map((l, index) => {
+                    let clr = l.msg.includes("Detected") || l.msg.includes("Sensor") ? "color:#FFFF00;" : "color:#2ecc71;";
+                    return `<li class="log-item">
+                                <span class="log-date">${l.date}</span>
+                                <span class="log-msg" style="${clr}">${index + 1}. ${l.msg}</span>
+                            </li>`;
+                }).join('');
+            }
+            renderSecurityUI();
+            document.getElementById('hModal').style.display = 'block';
+        }
 
         function clearHistory() {
             Swal.fire({
@@ -491,7 +465,6 @@ function openHistory() {
                     isCountingDown = false;
                     playBeep(440, 0.5);
                     freezePanel(false, true);
-                   
                 }
             }, 1000);
         }
@@ -505,77 +478,59 @@ function openHistory() {
             }
             localStorage.setItem("samxi_id", dev);
             client = new Paho.MQTT.Client("broker.hivemq.com", 8884, "cl_" + Math.random().toString(16).slice(2,8));
-           
-client.onConnectionLost = (e) => {
-    if(!isCountingDown) {
-        document.getElementById('led').className = "led red";
-        // Main page button
-        document.getElementById('stat').innerHTML = `OFFLINE <button class="reconnect-btn" onclick="connect();">RECONNECT</button>` + document.getElementById('pCont').outerHTML;
-       
-        // Settings page button (Same exact HTML)
-        document.getElementById('modStat').innerHTML = `OFFLINE <button class="reconnect-btn" onclick="connect();">RECONNECT</button>`;
-       
-        freezePanel(true, true);
-    }
-};
+            
+            client.onConnectionLost = (e) => {
+                if(!isCountingDown) {
+                    document.getElementById('led').className = "led red";
+                    document.getElementById('stat').innerHTML = `OFFLINE <button class="reconnect-btn" onclick="connect();">RECONNECT</button>` + document.getElementById('pCont').outerHTML;
+                    document.getElementById('modStat').innerHTML = `OFFLINE <button class="reconnect-btn" onclick="connect();">RECONNECT</button>`;
+                    freezePanel(true, true);
+                }
+            };
 
-client.onMessageArrived = (m) => {
-    document.getElementById('modStat').innerHTML = "";
-    freezePanel(false);
-    let p = m.payloadString.trim();
-    let topic = m.destinationName;
-    let s = document.getElementById('stat');
-    const nowTime = new Date();
-   
-    if(document.getElementById('lastUpdate')) {
-        document.getElementById('lastUpdate').innerText = "Last update: " + nowTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    }
-    lastMsgTime = Date.now();
-    document.getElementById('led').className = "led green";
-    if (!isCountingDown) freezePanel(false, true);
+            client.onMessageArrived = (m) => {
+                document.getElementById('modStat').innerHTML = "";
+                freezePanel(false);
+                let p = m.payloadString.trim();
+                let topic = m.destinationName;
+                let s = document.getElementById('stat');
+                const nowTime = new Date();
+                
+                if(document.getElementById('lastUpdate')) {
+                    document.getElementById('lastUpdate').innerText = "Last update: " + nowTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                }
+                lastMsgTime = Date.now();
+                document.getElementById('led').className = "led green";
+                if (!isCountingDown) freezePanel(false, true);
 
-if (topic.includes("/security")) {
-        let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-        let parts = p.split('|');
-        if (parts.length < 4) return;
-       
-        let logId = parseInt(parts[0]);
-        let espDate = parts[1];
-        let espTime = parts[2];
-        let logMsg = parts[3];
+                if (topic.includes("/security")) {
+                    let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
+                    let parts = p.split('|');
+                    if (parts.length < 4) return;
+                    let logId = parseInt(parts[0]);
+                    let espDate = parts[1]; let espTime = parts[2]; let logMsg = parts[3];
 
-        if (!processedLogIds.includes(logId)) {
-            processedLogIds.push(logId);
-            if (processedLogIds.length > 500) processedLogIds.shift();
-            localStorage.setItem("processed_ids", JSON.stringify(processedLogIds));
-           
-            // ALWAYS save to Security Records (This fixes the empty PDF reports)
-            securityLogs.unshift({ id: logId, date: espDate, time: espTime, msg: logMsg });
-            if (securityLogs.length > 500) securityLogs.pop();
-            localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
+                    if (!processedLogIds.includes(logId)) {
+                        processedLogIds.push(logId);
+                        if (processedLogIds.length > 500) processedLogIds.shift();
+                        localStorage.setItem("processed_ids", JSON.stringify(processedLogIds));
+                        securityLogs.unshift({ id: logId, date: espDate, time: espTime, msg: logMsg });
+                        if (securityLogs.length > 500) securityLogs.pop();
+                        localStorage.setItem("local_security_records", JSON.stringify(securityLogs));
 
-            // Logic to decide what goes into the GREEN Activity History tab
-            // Added "FAILURE" and "RESTORED" so Power/WiFi events show up here too
-            if (logMsg.includes("Command") || logMsg.includes("Detected") || logMsg.includes("Sensor") ||
-                logMsg.includes("SUCCESS") || logMsg.includes("FAILURE") || logMsg.includes("RESTORED")) {
-               
-                let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
-                logs.unshift({ date: espDate + " " + espTime, msg: logMsg });
-                if(logs.length > 1000) logs = logs.slice(0, 1000);
-                localStorage.setItem("samxi_logs", JSON.stringify(logs));
-            } else {
-                showToast(`🛡️ SYSTEM EVENT RECORDED`, "green");
-            }
+                        if (logMsg.includes("Command") || logMsg.includes("Detected") || logMsg.includes("Sensor") || logMsg.includes("SUCCESS") || logMsg.includes("FAILURE") || logMsg.includes("RESTORED")) {
+                            let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
+                            logs.unshift({ date: espDate + " " + espTime, msg: logMsg });
+                            if(logs.length > 1000) logs = logs.slice(0, 1000);
+                            localStorage.setItem("samxi_logs", JSON.stringify(logs));
+                        } else {
+                            showToast(`🛡️ SYSTEM EVENT RECORDED`, "green");
+                        }
+                        if (document.getElementById('hModal').style.display === 'block') { renderSecurityUI(); openHistory(); }
+                    }
+                    return;
+                }
 
-            if (document.getElementById('hModal').style.display === 'block') {
-                renderSecurityUI();
-                openHistory();
-            }
-        }
-        return;
-    }
-
-                // FIX: Removed the duplicate local 'addLog' triggers for OPEN and CLOSED
                 if (p === "OPENING" || p === "OPEN") {
                     if (lastSensorStatus !== "OPEN") { showToast("ALERT: Door is Opening!", "error"); vibrateAlert('opening'); startGateReminder(); }
                     lastSensorStatus = "OPEN";
@@ -634,7 +589,6 @@ if (topic.includes("/security")) {
             }, onFailure: (e) => { setTimeout(connect, 5000); } });
         }
 
-        // --- RESTORED PREVIOUS PDF LOGIC ---
         function downloadPDFReport() {
             const devId = localStorage.getItem("samxi_id") || "N/A";
             const secLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
@@ -642,22 +596,8 @@ if (topic.includes("/security")) {
             secLogs.sort((a, b) => b.id - a.id);
             const element = document.createElement('div');
             element.style.padding = "20px"; element.style.color = "#333"; element.style.fontFamily = "sans-serif";
-
             let tableRows = secLogs.map((l, i) => `<tr><td style="border:1px solid #ddd; padding:8px;">${i + 1}</td><td style="border:1px solid #ddd; padding:8px;">${l.date || ''}</td><td style="border:1px solid #ddd; padding:8px;">${l.time}</td><td style="border:1px solid #ddd; padding:8px;">${l.msg}</td></tr>`).join('');
-
-            element.innerHTML = `
-                <div style="text-align:center; border-bottom:2px solid #2ecc71; padding-bottom:10px; margin-bottom:20px;">
-                    <h1 style="color:#2ecc71; margin:0;">SAMXI SMART PRO</h1>
-                    <p style="margin:5px 0;">Security Audit Report</p>
-                    <p style="font-size:12px;">Device ID: ${devId} | Exported: ${new Date().toLocaleString()}</p>
-                </div>
-                <h3 style="color:#d35400;">DETAILED SECURITY LOGS</h3>
-                <table style="width:100%; border-collapse:collapse;">
-                    <thead><tr style="background:#f4f4f4;"><th style="border:1px solid #ddd; padding:8px; text-align:left;">#</th><th style="border:1px solid #ddd; padding:8px; text-align:left;">Date</th><th style="border:1px solid #ddd; padding:8px; text-align:left;">Time</th><th style="border:1px solid #ddd; padding:8px; text-align:left;">Event Description</th></tr></thead>
-                    <tbody>${tableRows}</tbody>
-                </table>
-                <div style="margin-top:30px; font-size:10px; color:#888; text-align:center;">This is an official hardware-generated security record from the Samxi Smart Door System.</div>`;
-
+            element.innerHTML = `<div style="text-align:center; border-bottom:2px solid #2ecc71; padding-bottom:10px; margin-bottom:20px;"><h1 style="color:#2ecc71; margin:0;">SAMXI SMART PRO</h1><p style="margin:5px 0;">Security Audit Report</p><p style="font-size:12px;">Device ID: ${devId} | Exported: ${new Date().toLocaleString()}</p></div><h3 style="color:#d35400;">DETAILED SECURITY LOGS</h3><table style="width:100%; border-collapse:collapse;"><thead><tr style="background:#f4f4f4;"><th style="border:1px solid #ddd; padding:8px; text-align:left;">#</th><th style="border:1px solid #ddd; padding:8px; text-align:left;">Date</th><th style="border:1px solid #ddd; padding:8px; text-align:left;">Time</th><th style="border:1px solid #ddd; padding:8px; text-align:left;">Event Description</th></tr></thead><tbody>${tableRows}</tbody></table>`;
             const opt = { margin: 10, filename: `SAMXI_Audit_${devId}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
             showToast("Generating PDF File...", "green");
             html2pdf().set(opt).from(element).save();
@@ -671,109 +611,47 @@ if (topic.includes("/security")) {
             netLogs.sort((a, b) => b.id - a.id);
             const element = document.createElement('div');
             element.style.padding = "20px"; element.style.color = "#333"; element.style.fontFamily = "sans-serif";
-
             let tableRows = netLogs.map((l, i) => `<tr><td style="border:1px solid #ddd; padding:8px;">${i + 1}</td><td style="border:1px solid #ddd; padding:8px;">${l.date || ''}</td><td style="border:1px solid #ddd; padding:8px;">${l.time}</td><td style="border:1px solid #ddd; padding:8px; font-weight:bold;">${l.msg}</td></tr>`).join('');
-
-            element.innerHTML = `
-                <div style="text-align:center; border-bottom:2px solid #f1c40f; padding-bottom:10px; margin-bottom:20px;">
-                    <h1 style="color:#2ecc71; margin:0;">SAMXI SMART PRO</h1>
-                    <p style="margin:5px 0; font-weight:bold;">Power & Network Stability Report</p>
-                    <p style="font-size:12px;">Device ID: ${devId} | Exported: ${new Date().toLocaleString()}</p>
-                </div>
-                <p style="font-size:13px;">This report lists all detected power failures and internet connectivity interruptions.</p>
-                <table style="width:100%; border-collapse:collapse; margin-top:10px;">
-                    <thead><tr style="background:#f9f9f9;"><th style="border:1px solid #ddd; padding:8px; text-align:left;">#</th><th style="border:1px solid #ddd; padding:8px; text-align:left;">Date</th><th style="border:1px solid #ddd; padding:8px; text-align:left;">Time</th><th style="border:1px solid #ddd; padding:8px; text-align:left;">Event Details</th></tr></thead>
-                    <tbody>${tableRows}</tbody>
-                </table>`;
-
+            element.innerHTML = `<div style="text-align:center; border-bottom:2px solid #f1c40f; padding-bottom:10px; margin-bottom:20px;"><h1 style="color:#2ecc71; margin:0;">SAMXI SMART PRO</h1><p style="margin:5px 0; font-weight:bold;">Power & Network Stability Report</p><p style="font-size:12px;">Device ID: ${devId} | Exported: ${new Date().toLocaleString()}</p></div><table style="width:100%; border-collapse:collapse; margin-top:10px;"><thead><tr style="background:#f9f9f9;"><th style="border:1px solid #ddd; padding:8px; text-align:left;">#</th><th style="border:1px solid #ddd; padding:8px; text-align:left;">Date</th><th style="border:1px solid #ddd; padding:8px; text-align:left;">Time</th><th style="border:1px solid #ddd; padding:8px; text-align:left;">Event Details</th></tr></thead><tbody>${tableRows}</tbody></table>`;
             const opt = { margin: 10, filename: `SAMXI_Power_WiFi_Log_${devId}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
             showToast("Preparing Diagnostic PDF...", "green");
             html2pdf().set(opt).from(element).save();
         }
 
-function downloadHistoryCSV() {
-    let regLogs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
-    let secLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-   
-    if (regLogs.length === 0 && secLogs.length === 0) {
-        showToast("No logs found!", "error");
-        return;
-    }
-
-    let masterList = [];
-
-    // 1. Process Security Records (Hardware Logs)
-    secLogs.forEach(l => {
-        let dateParts = l.date.split('/');
-        // Ensure date is in YYYY-MM-DD format for the Date constructor
-        let isoDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
-       
-        // --- THE FIX: INTELLIGENT CATEGORIZATION ---
-        // Normal activities labeled as ACTIVITY, actual threats as SECURITY
-        let eventType = "SECURITY";
-        if (l.msg.includes("Command") || l.msg.includes("Sensor") || l.msg.includes("SUCCESS") || l.msg.includes("RESTORED") || l.msg.includes("ONLINE")) {
-            eventType = "ACTIVITY";
-        }
-
-        masterList.push({
-            type: eventType,
-            date: l.date,
-            time: l.time,
-            msg: l.msg,
-            timestamp: new Date(`${isoDate} ${l.time}`).getTime()
-        });
-    });
-
-    // 2. Process Activity Logs (Phone Logs)
-    regLogs.forEach(l => {
-        // Fix for the NaN issue: Manually parse the DD/MM/YYYY string
-        let parts = l.date.split(' ');
-        let dParts = parts[0].split('/');
-        let isoDate = `${dParts[2]}-${dParts[1]}-${dParts[0]}`;
-        let ts = new Date(`${isoDate} ${parts[1]}`).getTime();
-       
-        let dateStr = l.date.split(' ')[0];
-        let timeStr = l.date.split(' ')[1];
-
-        // Only add if not a duplicate of a hardware log already added
-        let isDuplicate = masterList.some(item => item.msg === l.msg && Math.abs(item.timestamp - ts) < 2000);
-       
-        if (!isDuplicate) {
-            masterList.push({
-                type: "ACTIVITY",
-                date: dateStr,
-                time: timeStr,
-                msg: l.msg,
-                timestamp: ts
+        function downloadHistoryCSV() {
+            let regLogs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
+            let secLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
+            if (regLogs.length === 0 && secLogs.length === 0) { showToast("No logs found!", "error"); return; }
+            let masterList = [];
+            secLogs.forEach(l => {
+                let dateParts = l.date.split('/');
+                let isoDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+                let eventType = (l.msg.includes("Command") || l.msg.includes("Sensor") || l.msg.includes("SUCCESS") || l.msg.includes("RESTORED") || l.msg.includes("ONLINE")) ? "ACTIVITY" : "SECURITY";
+                masterList.push({ type: eventType, date: l.date, time: l.time, msg: l.msg, timestamp: new Date(`${isoDate} ${l.time}`).getTime() });
             });
+            regLogs.forEach(l => {
+                let parts = l.date.split(' ');
+                let dParts = parts[0].split('/');
+                let isoDate = `${dParts[2]}-${dParts[1]}-${dParts[0]}`;
+                let ts = new Date(`${isoDate} ${parts[1]}`).getTime();
+                if (!masterList.some(item => item.msg === l.msg && Math.abs(item.timestamp - ts) < 2000)) {
+                    masterList.push({ type: "ACTIVITY", date: l.date.split(' ')[0], time: l.date.split(' ')[1], msg: l.msg, timestamp: ts });
+                }
+            });
+            masterList.sort((a, b) => b.timestamp - a.timestamp);
+            let csv = "ORDER,EVENT TYPE,DATE,TIME,DESCRIPTION\n";
+            masterList.forEach((l, i) => { csv += `${i + 1},${l.type},${l.date},${l.time},${l.msg.replace(/,/g, " ")}\n`; });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = `SAMXI_MASTER_LOG_FINAL.csv`; a.click();
+            showToast("CHRONOLOGICAL LOG GENERATED", "green");
         }
-    });
 
-    // 3. SORT: Unified Chronological Order (Newest first)
-    masterList.sort((a, b) => b.timestamp - a.timestamp);
-
-    // 4. Build CSV
-    let csv = "ORDER,EVENT TYPE,DATE,TIME,DESCRIPTION\n";
-    masterList.forEach((l, i) => {
-        let cleanMsg = l.msg.replace(/,/g, " "); // Prevent CSV column breaks
-        csv += `${i + 1},${l.type},${l.date},${l.time},${cleanMsg}\n`;
-    });
-
-    // 5. Trigger Download
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `SAMXI_MASTER_LOG_FINAL.csv`;
-    a.click();
-    showToast("CHRONOLOGICAL LOG GENERATED", "green");
-}
-
-        // --- AUTH & MISC ---
         function verifyPin() {
             if ("vibrate" in navigator) navigator.vibrate(100);
-            if(audioCtx.state === 'suspended') audioCtx.resume(); requestWakeLock(); send("VERIFY|" + document.getElementById('entryPin').value); }
-       
+            if(audioCtx.state === 'suspended') audioCtx.resume(); requestWakeLock(); send("VERIFY|" + document.getElementById('entryPin').value); 
+        }
+        
         function changePin() {
             let np = document.getElementById('newPin').value;
             if(np.length < 4){ Swal.fire({ title: 'INVALID PIN', text: '4 digits required', icon: 'warning', background: '#1a1a1a', color: '#fff' }); return; }
@@ -788,36 +666,34 @@ function downloadHistoryCSV() {
             Swal.fire({ title: 'SAMXI SMART PRO', text: 'Door Settings Updated Successfully!', icon: 'success', timer: 2000, showConfirmButton: false, background: '#1a1a1a', color: '#fff' });
         }
 
-        function openTgModal() { document.getElementById('modal').style.display = 'none'; document.getElementById('tgModal').style.display = 'block'; }
-        toggleTgView('single'); // Add this line here to always start on Personal view
-}
+        function openTgModal() { 
+            document.getElementById('modal').style.display = 'none'; 
+            document.getElementById('tgModal').style.display = 'block'; 
+            toggleTgView('single'); 
+        }
 
-/* --- INSERT THE NEW CODE DIRECTLY AFTER IT --- */
+        function toggleTgView(mode) {
+            const sView = document.getElementById('viewSingle');
+            const mView = document.getElementById('viewMulti');
+            const sTab = document.getElementById('tabSingle');
+            const mTab = document.getElementById('tabMulti');
+            const label = document.getElementById('idLabel');
+            const input = document.getElementById('tgChatId');
+            if (mode === 'single') {
+                sView.style.display = 'block'; mView.style.display = 'none';
+                sTab.style.background = '#3498db'; sTab.style.color = 'white';
+                mTab.style.background = '#333'; mTab.style.color = '#888';
+                label.innerText = "ENTER PERSONAL ID:";
+                input.placeholder = "Example: 987654321";
+            } else {
+                sView.style.display = 'none'; mView.style.display = 'block';
+                mTab.style.background = '#3498db'; mTab.style.color = 'white';
+                sTab.style.background = '#333'; sTab.style.color = '#888';
+                label.innerText = "ENTER FAMILY GROUP ID:";
+                input.placeholder = "Example: -100123456789";
+            }
+        }
 
-function toggleTgView(mode) {
-    const sView = document.getElementById('viewSingle');
-    const mView = document.getElementById('viewMulti');
-    const sTab = document.getElementById('tabSingle');
-    const mTab = document.getElementById('tabMulti');
-    const label = document.getElementById('idLabel');
-    const input = document.getElementById('tgChatId');
-
-    if (mode === 'single') {
-        sView.style.display = 'block';
-        mView.style.display = 'none';
-        sTab.style.background = '#3498db'; sTab.style.color = 'white';
-        mTab.style.background = '#333'; mTab.style.color = '#888';
-        label.innerText = "ENTER PERSONAL ID:";
-        input.placeholder = "Example: 987654321";
-    } else {
-        sView.style.display = 'none';
-        mView.style.display = 'block';
-        mTab.style.background = '#3498db'; mTab.style.color = 'white';
-        sTab.style.background = '#333'; sTab.style.color = '#888';
-        label.innerText = "ENTER FAMILY GROUP ID:";
-        input.placeholder = "Example: -100123456789";
-    }
-}
         function syncTelegram() {
             let id = document.getElementById('tgChatId').value.trim();
             if(id.length < 5) { showToast("Enter valid ID", "error"); return; }
@@ -826,14 +702,7 @@ function toggleTgView(mode) {
         }
 
         function factoryReset() {
-            Swal.fire({
-                title: 'FACTORY RESET?',
-                text: "All data will be wiped permanently!",
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#e74c3c',
-                background: '#1a1a1a', color: '#fff'
-            }).then((result) => { if (result.isConfirmed) send('RESET_FACTORY'); });
+            Swal.fire({ title: 'FACTORY RESET?', text: "All data will be wiped permanently!", icon: 'warning', showCancelButton: true, confirmButtonColor: '#e74c3c', background: '#1a1a1a', color: '#fff' }).then((result) => { if (result.isConfirmed) send('RESET_FACTORY'); });
         }
 
         function openVoiceModal() { document.getElementById('modal').style.display = 'none'; document.getElementById('voiceModal').style.display = 'block'; }
@@ -851,13 +720,14 @@ function toggleTgView(mode) {
 
         function showProgress(d) { const bar = document.getElementById('pBar'); document.getElementById('pCont').style.display = 'block'; bar.style.width = '0%'; setTimeout(() => { bar.style.transition = `width ${d}s linear`; bar.style.width = '100%'; }, 50); }
         function hideProgress() { document.getElementById('pCont').style.display = 'none'; }
-function freezePanel(s, f = false) {
-    document.querySelectorAll('#pg3 .btn, #modal input, #modal select, #modal button').forEach(el => {
-        if (!el.classList.contains('reconnect-btn')) { // <--- This line makes the button clickable
-            if (f || el.id !== 'abtn') s ? el.classList.add('timer-lock') : el.classList.remove('timer-lock');
+
+        function freezePanel(s, f = false) {
+            document.querySelectorAll('#pg3 .btn, #modal input, #modal select, #modal button').forEach(el => {
+                if (!el.classList.contains('reconnect-btn')) {
+                    if (f || el.id !== 'abtn') s ? el.classList.add('timer-lock') : el.classList.remove('timer-lock');
+                }
+            });
         }
-    });
-}
 
         window.onload = function() {
             let savedID = localStorage.getItem("samxi_id"); if(savedID) document.getElementById('id').value = savedID;
