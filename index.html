@@ -220,41 +220,17 @@
         </div>
     </div>
 
-<div id="tgModal">
-    <div class="modal-content" style="border: 2px solid #3498db; padding-bottom: 40px;">
-        <h2 style="color:#3498db; margin-top:0; text-align:center;">NOTIFICATION SYNC</h2>
-        
-        <div style="display:flex; gap:10px; margin-bottom:20px;">
-            <button id="tabSingle" onclick="toggleTgView('single')" style="flex:1; height:45px; font-size:0.8rem; background:#3498db; color:white; border-radius:10px; border:none; font-weight:bold; cursor:pointer;">PERSONAL</button>
-            <button id="tabMulti" onclick="toggleTgView('multi')" style="flex:1; height:45px; font-size:0.8rem; background:#333; color:#888; border-radius:10px; border:none; font-weight:bold; cursor:pointer;">FAMILY GROUP</button>
+    <div id="tgModal">
+        <div class="modal-content">
+            <h2 style="color:#3498db; margin-top:0;">TELEGRAM SYNC</h2>
+            <p style="color:#aaa; font-size:0.8rem;">1. Start <a href="https://t.me/Samxi_Security_bot" target="_blank" style="color:#3498db; text-decoration: underline;">@Samxi_Security_bot</a></p>
+            <p style="color:#aaa; font-size:0.8rem;">2. Get your ID from <a href="https://t.me/userinfobot" target="_blank" style="color:#3498db; text-decoration: underline;">@userinfobot</a></p>
+            <input type="text" id="tgChatId" placeholder="Paste Chat ID here">
+            <button onclick="syncTelegram()" style="background:#3498db; color:white;">SAVE TO DOOR</button>
+            <button onclick="document.getElementById('tgModal').style.display='none'; document.getElementById('modal').style.display='block';" class="exit-link" style="font-size:1.5rem;">BACK</button>
         </div>
-
-        <div id="viewSingle">
-            <p style="color:#aaa; font-size:0.85rem; text-align:center;">Private alerts sent only to your phone.</p>
-            <button onclick="window.open('https://t.me/Samxi_Security_bot')" style="background:#222; border:1px solid #3498db; color:#3498db; height:40px; margin-bottom:10px;">1. START @Samxi_Security_bot</button>
-            <button onclick="window.open('https://t.me/userinfobot')" style="background:#222; border:1px solid #3498db; color:#3498db; height:40px;">2. GET YOUR PERSONAL ID</button>
-        </div>
-
-        <div id="viewMulti" style="display:none;">
-            <p style="color:#aaa; font-size:0.85rem; text-align:center;">Everyone in the group gets alerts together.</p>
-            <div style="background:#111; padding:12px; border-radius:10px; font-size:0.8rem; color:#eee; line-height:1.5;">
-                1. Create a Telegram Group.<br>
-                2. Add <span style="color:#3498db;">@Samxi_Security_bot</span> to the group.<br>
-                3. Add <span style="color:#3498db;">@GetIDsBot</span> to see the Group ID.
-            </div>
-            <button onclick="window.open('https://t.me/GetIDsBot')" style="background:#3498db; color:white; height:40px; margin-top:10px;">OPEN ID BOT</button>
-        </div>
-
-        <hr style="border:0; border-top:1px solid #333; margin:25px 0;">
-
-        <label id="idLabel" style="color:#f1c40f; font-size:0.8rem; font-weight:bold; display:block; text-align:center; margin-bottom:10px;">ENTER PERSONAL ID:</label>
-        <input type="text" id="tgChatId" placeholder="Paste ID Number Here" style="border: 2px solid #3498db; text-align: center; font-size: 1.2rem; background:#000;">
-        
-        <button onclick="syncTelegram()" style="background:#2ecc71; color:black; font-weight:bold; height:55px; font-size:1.1rem; border-radius:15px; margin-top:10px;">SAVE TO SAMXI PRO</button>
-        
-        <button onclick="document.getElementById('tgModal').style.display='none'; document.getElementById('modal').style.display='block';" class="exit-link" style="font-size:1.5rem; margin-top:20px;">BACK</button>
     </div>
-</div>
+
     <div id="voiceModal">
         <div class="modal-content">
             <h2 style="color:#9b59b6; margin-top:0;"> VOICE SETUP</h2>
@@ -538,7 +514,7 @@ if (topic.includes("/security")) {
         let securityLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
         let parts = p.split('|');
         if (parts.length < 4) return;
-        
+       
         let logId = parseInt(parts[0]);
         let espDate = parts[1];
         let espTime = parts[2];
@@ -548,7 +524,7 @@ if (topic.includes("/security")) {
             processedLogIds.push(logId);
             if (processedLogIds.length > 500) processedLogIds.shift();
             localStorage.setItem("processed_ids", JSON.stringify(processedLogIds));
-            
+           
             // ALWAYS save to Security Records (This fixes the empty PDF reports)
             securityLogs.unshift({ id: logId, date: espDate, time: espTime, msg: logMsg });
             if (securityLogs.length > 500) securityLogs.pop();
@@ -556,9 +532,9 @@ if (topic.includes("/security")) {
 
             // Logic to decide what goes into the GREEN Activity History tab
             // Added "FAILURE" and "RESTORED" so Power/WiFi events show up here too
-            if (logMsg.includes("Command") || logMsg.includes("Detected") || logMsg.includes("Sensor") || 
+            if (logMsg.includes("Command") || logMsg.includes("Detected") || logMsg.includes("Sensor") ||
                 logMsg.includes("SUCCESS") || logMsg.includes("FAILURE") || logMsg.includes("RESTORED")) {
-                
+               
                 let logs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
                 logs.unshift({ date: espDate + " " + espTime, msg: logMsg });
                 if(logs.length > 1000) logs = logs.slice(0, 1000);
@@ -694,7 +670,7 @@ if (topic.includes("/security")) {
 function downloadHistoryCSV() {
     let regLogs = JSON.parse(localStorage.getItem("samxi_logs") || "[]");
     let secLogs = JSON.parse(localStorage.getItem("local_security_records") || "[]");
-    
+   
     if (regLogs.length === 0 && secLogs.length === 0) {
         showToast("No logs found!", "error");
         return;
@@ -707,7 +683,7 @@ function downloadHistoryCSV() {
         let dateParts = l.date.split('/');
         // Ensure date is in YYYY-MM-DD format for the Date constructor
         let isoDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
-        
+       
         // --- THE FIX: INTELLIGENT CATEGORIZATION ---
         // Normal activities labeled as ACTIVITY, actual threats as SECURITY
         let eventType = "SECURITY";
@@ -731,13 +707,13 @@ function downloadHistoryCSV() {
         let dParts = parts[0].split('/');
         let isoDate = `${dParts[2]}-${dParts[1]}-${dParts[0]}`;
         let ts = new Date(`${isoDate} ${parts[1]}`).getTime();
-        
+       
         let dateStr = l.date.split(' ')[0];
         let timeStr = l.date.split(' ')[1];
 
         // Only add if not a duplicate of a hardware log already added
         let isDuplicate = masterList.some(item => item.msg === l.msg && Math.abs(item.timestamp - ts) < 2000);
-        
+       
         if (!isDuplicate) {
             masterList.push({
                 type: "ACTIVITY",
@@ -789,35 +765,6 @@ function downloadHistoryCSV() {
         }
 
         function openTgModal() { document.getElementById('modal').style.display = 'none'; document.getElementById('tgModal').style.display = 'block'; }
-        toggleTgView('single'); // Add this line here to always start on Personal view
-}
-
-/* --- INSERT THE NEW CODE DIRECTLY AFTER IT --- */
-
-function toggleTgView(mode) {
-    const sView = document.getElementById('viewSingle');
-    const mView = document.getElementById('viewMulti');
-    const sTab = document.getElementById('tabSingle');
-    const mTab = document.getElementById('tabMulti');
-    const label = document.getElementById('idLabel');
-    const input = document.getElementById('tgChatId');
-
-    if (mode === 'single') {
-        sView.style.display = 'block';
-        mView.style.display = 'none';
-        sTab.style.background = '#3498db'; sTab.style.color = 'white';
-        mTab.style.background = '#333'; mTab.style.color = '#888';
-        label.innerText = "ENTER PERSONAL ID:";
-        input.placeholder = "Example: 987654321";
-    } else {
-        sView.style.display = 'none';
-        mView.style.display = 'block';
-        mTab.style.background = '#3498db'; mTab.style.color = 'white';
-        sTab.style.background = '#333'; sTab.style.color = '#888';
-        label.innerText = "ENTER FAMILY GROUP ID:";
-        input.placeholder = "Example: -100123456789";
-    }
-}
         function syncTelegram() {
             let id = document.getElementById('tgChatId').value.trim();
             if(id.length < 5) { showToast("Enter valid ID", "error"); return; }
