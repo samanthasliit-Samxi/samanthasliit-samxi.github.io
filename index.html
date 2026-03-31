@@ -236,18 +236,20 @@
         </div>
 
         <div id="viewMulti" style="display:none;">
-            <p style="color:#aaa; font-size:0.85rem; text-align:center;">Everyone in the group gets alerts together.</p>
-            <button onclick="window.open('https://t.me/Samxi_Security_bot')" style="background:#222; border:1px solid #3498db; color:#3498db; height:40px; margin-bottom:10px;">1. START @Samxi_Security_bot</button>
-            <button onclick="Swal.fire({title:'GET GROUP ID (FOOLPROOF)', html:'<div style=text-align:left;font-size:0.9rem;><b>1.</b> Open <b>web.telegram.org</b> on PC/Browser.<br><b>2.</b> Click your Family Group.<br><b>3.</b> Look at the URL bar.<br><b>4.</b> Copy the ID number at the end (starts with <b>-</b>).</div>', icon:'info', background:'#1a1a1a', color:'#fff'})" 
-                    style="background:#222; border:1px solid #f1c40f; color:#f1c40f; height:40px;">
-                2. GET GROUP ID (WEB METHOD)
+            <p style="color:#aaa; font-size:0.85rem; text-align:center;">Sync everyone via a Telegram Web Link.</p>
+            <button onclick="window.open('https://web.telegram.org')" style="background:#222; border:1px solid #f1c40f; color:#f1c40f; height:40px;">
+                OPEN TELEGRAM WEB
             </button>
+            <p style="color:#666; font-size:0.75rem; margin-top:10px; text-align:center;">
+                <i>Open your group on the web and paste the URL below!</i>
+            </p>
         </div>
 
         <hr style="border:0; border-top:1px solid #333; margin:25px 0;">
 
-        <label id="idLabel" style="color:#f1c40f; font-size:0.8rem; font-weight:bold; display:block; text-align:center; margin-bottom:10px;">ENTER PERSONAL ID:</label>
-        <input type="text" id="tgChatId" placeholder="Paste ID Number Here" style="border: 2px solid #3498db; text-align: center; font-size: 1.2rem; background:#000;">
+        <label id="idLabel" style="color:#f1c40f; font-size:0.8rem; font-weight:bold; display:block; text-align:center; margin-bottom:10px;">ENTER ID OR PASTE WEB URL:</label>
+        
+        <input type="text" id="tgChatId" oninput="autoExtractId()" placeholder="Paste URL or ID here" style="border: 2px solid #3498db; text-align: center; font-size: 1.1rem; background:#000;">
         
         <button onclick="syncTelegram()" style="background:#2ecc71; color:black; font-weight:bold; height:55px; font-size:1.1rem; border-radius:15px; margin-top:10px;">SAVE TO SAMXI PRO</button>
         
@@ -671,14 +673,13 @@
             toggleTgView('single'); // Reset to personal view on every open
         }
 
-        function toggleTgView(mode) {
+function toggleTgView(mode) {
             const sView = document.getElementById('viewSingle');
             const mView = document.getElementById('viewMulti');
             const sTab = document.getElementById('tabSingle');
             const mTab = document.getElementById('tabMulti');
             const label = document.getElementById('idLabel');
             const input = document.getElementById('tgChatId');
-
             if (mode === 'single') {
                 sView.style.display = 'block'; mView.style.display = 'none';
                 sTab.style.background = '#3498db'; sTab.style.color = 'white';
@@ -689,30 +690,47 @@
                 sView.style.display = 'none'; mView.style.display = 'block';
                 mTab.style.background = '#3498db'; mTab.style.color = 'white';
                 sTab.style.background = '#333'; sTab.style.color = '#888';
-                label.innerText = "ENTER FAMILY GROUP ID:";
+                label.innerText = "ENTER FAMILY GROUP ID (OR PASTE URL):";
                 input.placeholder = "Example: -100123456789";
             }
         }
 
+        /* --- NEW AUTO-EXTRACTOR LOGIC --- */
+        function autoExtractId() {
+            let input = document.getElementById('tgChatId');
+            let val = input.value.trim();
+
+            // Check if the user pasted a Telegram Web URL
+            if (val.includes("telegram.org")) {
+                // Regex looks for the # sign followed by the ID (supports K and Z versions)
+                const match = val.match(/#(-?\d+)/);
+                
+                if (match && match[1]) {
+                    input.value = match[1];
+                    showToast("URL DETECTED: ID Extracted!", "green");
+                    playBeep(1000, 0.1); // Small success beep
+                }
+            }
+        }
+
+        /* --- UPDATED SYNC FUNCTION --- */
         function syncTelegram() {
             let id = document.getElementById('tgChatId').value.trim();
             if(id.length < 5) { showToast("Enter valid ID", "error"); return; }
             
-            // This sends the command to the Arduino Code
+            // Sends command to Arduino
             send("SETCHAT|" + id);
             
             showToast("SAMXI PRO SYNCED!", "green");
             
-            // SweetAlert confirmation
             Swal.fire({
                 title: 'SYNC SUCCESS',
-                text: 'Telegram Notifications are now active for ID: ' + id,
+                html: `Notifications active for ID:<br><b style="color:#00ff7f;">${id}</b>`,
                 icon: 'success',
                 background: '#1a1a1a',
                 color: '#fff'
             });
         }
-
         function factoryReset() {
             Swal.fire({ title: 'FACTORY RESET?', text: "All data will be wiped permanently!", icon: 'warning', showCancelButton: true, confirmButtonColor: '#e74c3c', background: '#1a1a1a', color: '#fff' }).then((result) => { if (result.isConfirmed) send('RESET_FACTORY'); });
         }
