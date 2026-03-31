@@ -668,7 +668,7 @@
         function openTgModal() { 
             document.getElementById('modal').style.display = 'none'; 
             document.getElementById('tgModal').style.display = 'block'; 
-            toggleTgView('single'); 
+            toggleTgView('single'); // Reset to personal view on every open
         }
 
         function toggleTgView(mode) {
@@ -678,6 +678,7 @@
             const mTab = document.getElementById('tabMulti');
             const label = document.getElementById('idLabel');
             const input = document.getElementById('tgChatId');
+
             if (mode === 'single') {
                 sView.style.display = 'block'; mView.style.display = 'none';
                 sTab.style.background = '#3498db'; sTab.style.color = 'white';
@@ -696,8 +697,20 @@
         function syncTelegram() {
             let id = document.getElementById('tgChatId').value.trim();
             if(id.length < 5) { showToast("Enter valid ID", "error"); return; }
-            showToast("Telegram Synced!", "green");
+            
+            // This sends the command to the Arduino Code
             send("SETCHAT|" + id);
+            
+            showToast("SAMXI PRO SYNCED!", "green");
+            
+            // SweetAlert confirmation
+            Swal.fire({
+                title: 'SYNC SUCCESS',
+                text: 'Telegram Notifications are now active for ID: ' + id,
+                icon: 'success',
+                background: '#1a1a1a',
+                color: '#fff'
+            });
         }
 
         function factoryReset() {
