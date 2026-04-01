@@ -477,6 +477,13 @@
                 Swal.fire({ title: 'PRODUCT ID REQUIRED', text: 'Please enter your Product ID to continue.', icon: 'warning', background: '#1a1a1a', color: '#fff' });
                 return;
             }
+
+            // Visual feedback for internet traffic lag
+            const ns = document.getElementById('netStat');
+            ns.style.display = 'block';
+            ns.innerText = "📡 ESTABLISHING ENCRYPTED LINK...";
+            ns.className = "net-status good-bg pulse-active";
+
             localStorage.setItem("samxi_id", dev);
             client = new Paho.MQTT.Client("broker.hivemq.com", 8884, "cl_" + Math.random().toString(16).slice(2,8));
             
@@ -489,9 +496,34 @@
                 }
             };
 
-            client.onMessageArrived = (m) => {
+            client.connect({ 
+                useSSL: true, 
+                keepAliveInterval: 10, 
+                timeout: 5, 
+                onSuccess: () => {
+                    client.subscribe("samxi/" + dev + "/state", { qos: 1 });
+                    client.subscribe("samxi/" + dev + "/security/#", { qos: 1 });
+                    requestWakeLock();
+                    send("GET_STATE");
+                    ns.innerText = "🛡️ SECURE CONNECTION ACTIVE"; 
+                    ns.className = "net-status online-bg"; 
+                    setTimeout(() => { ns.style.display = 'none'; }, 2500);
+                }, 
+                onFailure: (e) => { 
+                    ns.innerText = "⚠️ TRAFFIC JAM - RETRYING...";
+                    setTimeout(connect, 5000); 
+                } 
+            });
+        }
+
+client.onMessageArrived = (m) => {
                 document.getElementById('modStat').innerHTML = "";
-                freezePanel(false);
+                
+                // --- FIX: Only unfreeze if we aren't in the middle of a countdown ---
+                if (!isCountingDown) {
+                    freezePanel(false);
+                }
+
                 let p = m.payloadString.trim();
                 let topic = m.destinationName;
                 let s = document.getElementById('stat');
@@ -502,6 +534,8 @@
                 }
                 lastMsgTime = Date.now();
                 document.getElementById('led').className = "led green";
+                
+                // Ensure panel remains locked during countdown except for the Auto button
                 if (!isCountingDown) freezePanel(false, true);
 
                 if (topic.includes("/security")) {
@@ -648,9 +682,13 @@
             showToast("CHRONOLOGICAL LOG GENERATED", "green");
         }
 
-        function verifyPin() {
+function verifyPin() {
             if ("vibrate" in navigator) navigator.vibrate(100);
-            if(audioCtx.state === 'suspended') audioCtx.resume(); requestWakeLock(); send("VERIFY|" + document.getElementById('entryPin').value); 
+            // Immediately show the user that the command was sent
+            showToast("VERIFYING ACCESS...", "green", 2500); 
+            if(audioCtx.state === 'suspended') audioCtx.resume(); 
+            requestWakeLock(); 
+            send("VERIFY|" + document.getElementById('entryPin').value); 
         }
         
         function changePin() {
