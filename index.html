@@ -285,7 +285,7 @@
 
     <div id="toast"></div>
 
-    <script>
+<script>
         // --- GLOBAL VARIABLES ---
         let processedLogIds = JSON.parse(localStorage.getItem("processed_ids") || "[]");
         let wakeLock = null;
@@ -496,27 +496,7 @@
                 }
             };
 
-            client.connect({ 
-                useSSL: true, 
-                keepAliveInterval: 10, 
-                timeout: 5, 
-                onSuccess: () => {
-                    client.subscribe("samxi/" + dev + "/state", { qos: 1 });
-                    client.subscribe("samxi/" + dev + "/security/#", { qos: 1 });
-                    requestWakeLock();
-                    send("GET_STATE");
-                    ns.innerText = "🛡️ SECURE CONNECTION ACTIVE"; 
-                    ns.className = "net-status online-bg"; 
-                    setTimeout(() => { ns.style.display = 'none'; }, 2500);
-                }, 
-                onFailure: (e) => { 
-                    ns.innerText = "⚠️ TRAFFIC JAM - RETRYING...";
-                    setTimeout(connect, 5000); 
-                } 
-            });
-        }
-
-client.onMessageArrived = (m) => {
+            client.onMessageArrived = (m) => {
                 document.getElementById('modStat').innerHTML = "";
                 
                 // --- FIX: Only unfreeze if we aren't in the middle of a countdown ---
@@ -615,13 +595,24 @@ client.onMessageArrived = (m) => {
                 }
             };
 
-            client.connect({ useSSL: true, keepAliveInterval: 10, timeout: 5, onSuccess: () => {
-                client.subscribe("samxi/" + dev + "/state", { qos: 1 });
-                client.subscribe("samxi/" + dev + "/security/#", { qos: 1 });
-                requestWakeLock();
-                send("GET_STATE");
-                const ns = document.getElementById('netStat'); ns.innerText = "System Ready"; ns.className = "net-status online-bg"; setTimeout(() => { ns.style.display = 'none'; }, 2000);
-            }, onFailure: (e) => { setTimeout(connect, 5000); } });
+            client.connect({ 
+                useSSL: true, 
+                keepAliveInterval: 10, 
+                timeout: 5, 
+                onSuccess: () => {
+                    client.subscribe("samxi/" + dev + "/state", { qos: 1 });
+                    client.subscribe("samxi/" + dev + "/security/#", { qos: 1 });
+                    requestWakeLock();
+                    send("GET_STATE");
+                    ns.innerText = "🛡️ SECURE CONNECTION ACTIVE"; 
+                    ns.className = "net-status online-bg"; 
+                    setTimeout(() => { ns.style.display = 'none'; }, 2500);
+                }, 
+                onFailure: (e) => { 
+                    ns.innerText = "⚠️ TRAFFIC JAM - RETRYING...";
+                    setTimeout(connect, 5000); 
+                } 
+            });
         }
 
         function downloadPDFReport() {
@@ -682,7 +673,7 @@ client.onMessageArrived = (m) => {
             showToast("CHRONOLOGICAL LOG GENERATED", "green");
         }
 
-function verifyPin() {
+        function verifyPin() {
             if ("vibrate" in navigator) navigator.vibrate(100);
             // Immediately show the user that the command was sent
             showToast("VERIFYING ACCESS...", "green", 2500); 
@@ -711,7 +702,7 @@ function verifyPin() {
             toggleTgView('single'); // Reset to personal view on every open
         }
 
-function toggleTgView(mode) {
+        function toggleTgView(mode) {
             const sView = document.getElementById('viewSingle');
             const mView = document.getElementById('viewMulti');
             const sTab = document.getElementById('tabSingle');
@@ -733,34 +724,25 @@ function toggleTgView(mode) {
             }
         }
 
-        /* --- NEW AUTO-EXTRACTOR LOGIC --- */
         function autoExtractId() {
             let input = document.getElementById('tgChatId');
             let val = input.value.trim();
 
-            // Check if the user pasted a Telegram Web URL
             if (val.includes("telegram.org")) {
-                // Regex looks for the # sign followed by the ID (supports K and Z versions)
                 const match = val.match(/#(-?\d+)/);
-                
                 if (match && match[1]) {
                     input.value = match[1];
                     showToast("URL DETECTED: ID Extracted!", "green");
-                    playBeep(1000, 0.1); // Small success beep
+                    playBeep(1000, 0.1); 
                 }
             }
         }
 
-        /* --- UPDATED SYNC FUNCTION --- */
         function syncTelegram() {
             let id = document.getElementById('tgChatId').value.trim();
             if(id.length < 5) { showToast("Enter valid ID", "error"); return; }
-            
-            // Sends command to Arduino
             send("SETCHAT|" + id);
-            
             showToast("SAMXI PRO SYNCED!", "green");
-            
             Swal.fire({
                 title: 'SYNC SUCCESS',
                 html: `Notifications active for ID:<br><b style="color:#00ff7f;">${id}</b>`,
@@ -769,6 +751,7 @@ function toggleTgView(mode) {
                 color: '#fff'
             });
         }
+
         function factoryReset() {
             Swal.fire({ title: 'FACTORY RESET?', text: "All data will be wiped permanently!", icon: 'warning', showCancelButton: true, confirmButtonColor: '#e74c3c', background: '#1a1a1a', color: '#fff' }).then((result) => { if (result.isConfirmed) send('RESET_FACTORY'); });
         }
