@@ -133,13 +133,18 @@
     <div id="printArea" style="display:none;"></div>
     <div class="header">
         <span>SAMXI SMART DOOR</span>
-        <div class="led-group">
-            <div id="wifiSig" class="wifi-box" style="display:none;"> <span id="rssiVal">--</span></div>
-            <div id="led" class="led"></div>
-            <svg id="gear" class="gear-icon" onclick="document.getElementById('modal').style.display='block'" viewBox="0 0 24 24">
-                <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
-            </svg>
-        </div>
+<div class="led-group">
+    <div id="ramSig" class="wifi-box" style="color: #3498db; border-color: #3498db; display:none; min-width: 70px;"> 
+        <span style="font-size: 0.6rem; margin-right: 4px;">RAM</span>
+        <span id="ramVal">--</span>
+    </div>
+    
+    <div id="wifiSig" class="wifi-box" style="display:none;"> <span id="rssiVal">--</span></div>
+    <div id="led" class="led"></div>
+    <svg id="gear" class="gear-icon" onclick="document.getElementById('modal').style.display='block'" viewBox="0 0 24 24">
+        <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+    </svg>
+</div>
     </div>
 
     <div class="container">
@@ -576,20 +581,48 @@
                     timerEditing = false;
                 }
                 else if (p.includes("VOICE_LINKED")) { Swal.fire({ title: 'CLOUD LINKED', text: 'Voice commands enabled.', icon: 'success', background: '#1a1a1a', color: '#fff' }); }
-                else if (p === "ONLINE" || p.startsWith("DATA|")) {
+else if (p === "ONLINE" || p.startsWith("DATA|")) {
                     document.getElementById('pg1').style.display='none';
                     if (document.getElementById('pg3').style.display !== 'block') document.getElementById('pg2').style.display = 'block';
+                    
                     if (p.startsWith("DATA|")) {
                         let d = p.split("|");
                         updateWiFi(d[1]);
+
+                        // --- NEW: RAM DIAGNOSTIC LOGIC ---
+                        if (d[5]) {
+                            const ramBox = document.getElementById('ramSig');
+                            const ramVal = document.getElementById('ramVal');
+                            if(ramBox) ramBox.style.display = 'flex';
+                            
+                            let ramKB = parseInt(d[5]) / 1024; 
+                            if(ramVal) ramVal.innerText = ramKB.toFixed(1) + "K";
+                            
+                            // Visual Alert: Turns Red if memory is dangerously low
+                            if (ramKB < 14) {
+                                if(ramBox) { ramBox.style.color = "#ff4d4d"; ramBox.style.borderColor = "#ff4d4d"; }
+                            } else {
+                                if(ramBox) { ramBox.style.color = "#3498db"; ramBox.style.borderColor = "#3498db"; }
+                            }
+                        }
+
                         if (!timerEditing) {
                             document.getElementById('at').value = d[3]; currentWait = d[3];
                             document.getElementById('ae').value = d[2];
                             document.getElementById('abtn').style.display = (d[2] == "1") ? "block" : "none";
                         }
+                        
                         if (!isStatusLocked) {
-                            if(p.includes("OPEN")) { lastSensorStatus="OPEN"; s.innerHTML="GATE OPENED"+document.getElementById('pCont').outerHTML; s.style.backgroundColor="#3a1e1e"; }
-                            else if(p.includes("CLOSED")) { lastSensorStatus="CLOSED"; s.innerHTML="GATE CLOSED"+document.getElementById('pCont').outerHTML; s.style.backgroundColor="#1e3a1e"; }
+                            if(p.includes("OPEN")) { 
+                                lastSensorStatus="OPEN"; 
+                                s.innerHTML="GATE OPENED"+document.getElementById('pCont').outerHTML; 
+                                s.style.backgroundColor="#3a1e1e"; 
+                            }
+                            else if(p.includes("CLOSED")) { 
+                                lastSensorStatus="CLOSED"; 
+                                s.innerHTML="GATE CLOSED"+document.getElementById('pCont').outerHTML; 
+                                s.style.backgroundColor="#1e3a1e"; 
+                            }
                         }
                     }
                 }
