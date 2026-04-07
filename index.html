@@ -254,7 +254,11 @@
 
         <label id="idLabel" style="color:#f1c40f; font-size:0.8rem; font-weight:bold; display:block; text-align:center; margin-bottom:10px;">ENTER ID OR PASTE WEB URL:</label>
         
-        <input type="text" id="tgChatId" oninput="autoExtractId()" placeholder="Paste URL or ID here" style="border: 2px solid #3498db; text-align: center; font-size: 1.1rem; background:#000;">
+       <div style="position: relative;">
+    <input type="text" id="tgChatId" oninput="autoExtractId()" placeholder="Paste URL or ID here" style="border: 2px solid #3498db; text-align: center; font-size: 1.1rem; background:#000; padding-right: 50px;">
+    <button onclick="navigator.clipboard.readText().then(t => { document.getElementById('tgChatId').value = t; autoExtractId(); })" 
+            style="position: absolute; right: 10px; top: 18px; background: none; border: none; font-size: 1.5rem; cursor: pointer;">📋</button>
+</div>
         
         <button onclick="syncTelegram()" style="background:#2ecc71; color:black; font-weight:bold; height:55px; font-size:1.1rem; border-radius:15px; margin-top:10px;">SAVE TO SAMXI PRO</button>
         
@@ -757,16 +761,30 @@ else if (p === "ONLINE" || p.startsWith("DATA|")) {
             }
         }
 
-        function autoExtractId() {
+function autoExtractId() {
             let input = document.getElementById('tgChatId');
             let val = input.value.trim();
 
-            if (val.includes("telegram.org")) {
-                const match = val.match(/#(-?\d+)/);
+            // --- SAMXI PRO SMART PARSER ---
+            // Detects if the user pasted a full URL instead of an ID
+            if (val.includes("telegram.org") || val.includes("t.me")) {
+                
+                // Smart Regex: Looks for '#' or '/' followed by a minus and 7+ digits
+                // This captures: #-100123456, /c/-100123456, or simply -100123456
+                const match = val.match(/(?:#|\/c\/|#-|)(-?\d{7,})/);
+                
                 if (match && match[1]) {
-                    input.value = match[1];
-                    showToast("URL DETECTED: ID Extracted!", "green");
-                    playBeep(1000, 0.1); 
+                    let extractedId = match[1];
+                    
+                    // Logic fix: Telegram Web URLs often hide the '-100' prefix.
+                    // If the extracted ID is 10 digits and positive, it's likely a supergroup missing '-100'
+                    if (!extractedId.startsWith("-") && extractedId.length >= 9) {
+                        extractedId = "-100" + extractedId;
+                    }
+
+                    input.value = extractedId;
+                    showToast("🚀 SAMXI INTELLIGENCE: ID Extracted!", "green");
+                    playBeep(1200, 0.15); // Confirmation sound
                 }
             }
         }
