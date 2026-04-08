@@ -286,6 +286,20 @@
  <div id="toast"></div>
 
 <script>
+ // --- SAMXI PRO: ANDROID SHARE BRIDGE ---
+function receiveSharedUrl(url) {
+    // Open the Telegram Sync Modal
+    document.getElementById('modal').style.display = 'none'; 
+    document.getElementById('tgModal').style.display = 'block';
+    toggleTgView('multi'); 
+
+    // Put the URL in the box and extract the ID
+    let input = document.getElementById('tgChatId');
+    input.value = url;
+    autoExtractId();
+    
+    showToast("SAMXI PRO: Link Captured!", "green");
+}
  // --- GLOBAL VARIABLES ---
  let processedLogIds = JSON.parse(localStorage.getItem("processed_ids") || "[]");
  let wakeLock = null;
